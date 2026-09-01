@@ -125,6 +125,10 @@ Functor instances must satisfy, for all `x: Functor[A]`:
 - `docs/HOWTO.md`: replace the `Functor` stub with a real section (concept + the two laws in plain language + a runnable example). Replace `Identity`'s forward-reference ("Once Functor lands...") with the real behavior. Replace `Const[A, B]`'s stub with a real section.
 - CLAUDE.md: no structural changes expected: this spec *is* the design record for Functor, so CLAUDE.md's own Design section doesn't need duplicate content — it can stay pointing at the Type hierarchy list, with specs as the detail layer underneath it going forward.
 
+## Implementation constraints
+
+- Implement only what is explicitly requested in the ticket. Do not add convenience functions, helper utilities, or alternative syntax sugar unless specified.
+
 ## Out of scope
 
 - `Pointed`, `Apply`, `Applicative`, `Bind`, `Monad` — later specs.
