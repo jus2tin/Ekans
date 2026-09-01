@@ -11,6 +11,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Functional: the box with a broken lid](#functional-the-box-with-a-broken-lid)
 - [Identity: the box that changes nothing](#identity-the-box-that-changes-nothing)
 - [Functor: doing something to what's inside](#functor-doing-something-to-whats-inside)
+- [Const: the box that refuses to look](#const-the-box-that-refuses-to-look)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -138,6 +139,37 @@ Both spellings do the same thing — `box.fmap(f)` and `fmap(f, box)` — pick w
 
 These aren't just nice-to-haves — Ekans checks both laws for every `Functor` instance with Hypothesis, generating random values *and* random functions to try to break them, rather than trusting a couple of hand-picked examples.
 
+## Const: the box that refuses to look
+
+`Identity` is the functor that changes the *least*. `Const[A, B]` is the functor that changes *nothing at all*, and it earns that in a much stranger way: it doesn't have a value of type `B` to change in the first place.
+
+```python
+from ekans.const import Const
+from ekans.functor import fmap
+
+box = Const(value=1)
+box.fmap(str)   # Const(value=1) -- f never ran
+fmap(len, box)  # Const(value=1) -- same story
+```
+
+`Const[A, B]` holds a real, runtime value of type `A`. `B` exists purely at the type level — nothing of that type is ever stored, so `fmap` has no choice but to hand back the exact same held value, re-tagged from `Const[A, B]` to `Const[A, C]`, no matter what function you pass it or what that function does. In Haskell, this is `data Const a b = Const a`, with `instance Functor (Const a) where fmap _ (Const v) = Const v` — the underscore there is doing all the talking.
+
+This is the same shape as `Proxy[A]` below in one sense (a phantom type parameter nothing ever touches) but a genuinely different animal in another: `Proxy` has *no* runtime field at all, while `Const` holds a completely real value — it just happens to be a value of the type that `fmap` isn't allowed to see.
+
+**Why bother?** Because `Const` is the type that actually exercises `Functor` over a second parameter, rather than the whole container. It's a small, slightly odd example now, but this exact "hold a value, ignore the mapped-over type" trick is precisely what makes lens-like getters possible in richer profunctor-based libraries later on — a preview worth having early, even in its plainest form.
+
+**Equality here works on *both* type parameters**, not just the one `fmap` touches — `Const[int, str]` and `Const[bool, str]` don't type-check as comparable (the held type differs), and neither do `Const[int, str]` and `Const[int, float]` (the phantom type differs, even though nothing of that type is ever actually stored):
+
+```python
+a: Const[int, str] = Const(value=1)
+b: Const[int, float] = Const(value=1)
+
+a == b
+# error: Unsupported operand types for == ("Const[int, str]" and "Const[int, float]")  [operator]
+```
+
+Same mechanism as `Identity`'s type-safe equality above, just extended to two type parameters instead of one — mypy's invariance check works purely at the type level, so it catches the mismatch on `B` even though `B` never shows up in a runtime attribute to compare.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
@@ -153,5 +185,4 @@ These don't exist in the package yet. Each one gets its own full section, comple
 - **Profunctor** — a box with an in-door and an out-door, each independently adaptable.
 - **Strong** — a `Profunctor` that can politely ignore half a tuple while it works on the other half.
 - **Star** — a `Profunctor` built by wrapping up a function that returns a *boxed* value (`a -> f b`) instead of a plain one, so `dimap` can reach in through the box too. This is the interesting one: when the box is a `Monad`, composing two `Star`s is exactly Kleisli composition — chaining effectful functions end to end. Give `Star` its own `Category` instance on top of that composition and you get Haskell's `Kleisli` arrow — the `Arrow` built for monadic effects. (Not every `Arrow` looks like this — plain functions are an `Arrow` too, no box in sight — but the Kleisli case, the one people actually reach for, is precisely `Star` plus `Category`.) It comes essentially free once `Category`, `Strong`, and `Monad` already exist, rather than needing its own bespoke machinery.
-- **Proxy[A]** — a box that was never holding anything to begin with; `A` exists only on the label, never at runtime. Named after Haskell's `Data.Proxy` — not to be confused with the `profunctors` package's *different* `Forget` type, which actually does hold a value and might show up here later under its own name.
-- **Const[A, B]** — `Proxy`'s cousin: it *does* hold a real value of type `A`, and simply refuses to look at `B` at all.
+- **Proxy[A]** — a box that was never holding anything to begin with; `A` exists only on the label, never at runtime. Named after Haskell's `Data.Proxy` — not to be confused with the `profunctors` package's *different* `Forget` type, which actually does hold a value and might show up here later under its own name. `Const` above is its cousin with a real value inside.

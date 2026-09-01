@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar, overload
 from ekans.functional import Functional
 
 if TYPE_CHECKING:
+    from ekans.const import Const
     from ekans.identity import Identity
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
 B = TypeVar("B")
+H = TypeVar("H")
 
 
 class Functor(Functional, Generic[A_co]):
@@ -36,6 +38,8 @@ class Functor(Functional, Generic[A_co]):
 
 @overload
 def fmap(f: Callable[[A], B], functor: "Identity[A]") -> "Identity[B]": ...
+@overload
+def fmap(f: Callable[[A], B], functor: "Const[H, A]") -> "Const[H, B]": ...
 @overload
 def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]: ...
 def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]:  # noqa: E302

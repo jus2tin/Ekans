@@ -32,7 +32,7 @@ Retrofit `Identity[A]` to inherit `Functor[A]` and implement `fmap`. Add its ove
 
 ### T-004: Const[A, B] concrete type + Functor instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-001, T-002
 
 New type: `src/ekans/const.py`, `Const[A, B]` (`data Const a b = Const a`), `Functional`-based frozen dataclass, `fmap` is a no-op re-tag. Type-safe `__eq__`/`__hash__` per the Equality convention, extended to two type parameters (invariant in both — confirm mypy rejects a mismatch on *either* parameter, not just one, per the spec's open question). Add its overload to the free `fmap` function. Law tests via the T-002 helper, plus example/equality tests. Replace `Const[A, B]`'s `docs/HOWTO.md` stub with a real section.
