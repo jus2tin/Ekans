@@ -1,6 +1,6 @@
 # Spec: Functor
 
-**Status:** Draft — awaiting review
+**Status:** Approved
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Functor"
 
 This is the first spec written under Ekans' spec-driven workflow (see CLAUDE.md's Workflow section). It's also meant to be the template for future specs — if its shape stops working, fix the shape here and note the change, rather than drifting format per spec.
@@ -40,6 +40,8 @@ class Identity(Functor[A], Generic[A]):
 
 Verified against `mypy --strict`: calling `.fmap` on an `Identity[int]` reveals `Identity[str]` after mapping with `str`; calling it through a `Functor[int]`-typed reference correctly falls back to the looser `Functor[str]`, exactly as expected for an ABC-typed handle.
 
+`Functional` stays in the MRO through `Functor(Functional, Generic[A_co])` — `Identity` doesn't need to name it again explicitly. Confirmed at runtime: `Identity.__mro__` is `[Identity, Functor, Functional, ABC, Generic, object]`, and mutating a constructed `Identity` still raises `FrozenInstanceError` (a subclass of `AttributeError`) exactly as it does today — the extra inheritance level doesn't let anything slip past the immutability guard.
+
 ### Naming: `fmap`, not `map`
 
 Both the method and the free function are called `fmap` (confirmed over `map`, which would shadow the builtin `map()` when imported). This departs slightly from `.map()`-style Python idiom in favor of matching Haskell — consistent with CLAUDE.md's "extremely opinionated... will not feel very pythonic" design principle.
@@ -52,18 +54,20 @@ Both the method and the free function are called `fmap` (confirmed over `map`, w
 
 Python has no true higher-kinded types. The `returns` library's `KindN` approach gets full HKT-style polymorphism, but only by shipping and maintaining its own mypy plugin — a maintenance burden this project's scale doesn't justify.
 
-Instead: the free function `fmap` gets one `@overload` per concrete Functor type, added as each type lands:
+Instead: the free function `fmap` gets one `@overload` per concrete Functor type, added as each type lands, plus a final loose fallback overload typed against the abstract `Functor[A]` itself:
 
 ```python
 @overload
 def fmap(f: Callable[[A], B], functor: Identity[A]) -> Identity[B]: ...
 @overload
 def fmap(f: Callable[[A], B], functor: Const[C, A]) -> Const[C, B]: ...
+@overload
+def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]: ...
 def fmap(f, functor):
     return functor.fmap(f)
 ```
 
-Verified against `mypy --strict`: `fmap(str, Identity(value=1))` reveals `Identity[str]`; `fmap(str, Const(value=1))` reveals `Const[int, str]`. Both precise, no plugin required.
+Verified against `mypy --strict`: `fmap(str, Identity(value=1))` still reveals precise `Identity[str]`; `fmap(str, Const(value=1))` still reveals precise `Const[int, str]` — the fallback doesn't cost precision for concrete calls, since mypy resolves `@overload`s top-to-bottom and picks the first match. Without the fallback, generic code written against an abstract `Functor[A]` handle (e.g. a function that takes `x: Functor[A]` and calls `fmap` on it) fails to type-check at all — confirmed the exact failure: `No overload variant of "fmap" matches argument types "Callable[[A], A]", "Functor[A]"`. With the fallback added, that same generic code type-checks, correctly falling back to the loose `Functor[A]` return type.
 
 **Tradeoff, stated plainly:** this doesn't give a caller *fully generic* code (e.g. a function written once against "any Functor" can't get a precisely-typed return without its own overloads or accepting the loose `Functor[B]`). For a library at this scale, where consumers mostly work with concrete, known types, that's an acceptable gap. Revisit if that stops being true.
 
@@ -89,13 +93,30 @@ Functor instances must satisfy, for all `x: Functor[A]`:
   def assert_functor_laws(
       make: Callable[[A], Functor[A]],
       values: SearchStrategy[A],
-      f: Callable[[A], B],
-      g: Callable[[B], C],
   ) -> None:
       """Assert the Functor identity and composition laws for `make`."""
+
+      @given(values)
+      def identity_law(value: A) -> None:
+          x = make(value)
+          assert x.fmap(lambda a: a) == x
+
+      @given(
+          values,
+          st.functions(like=lambda a: a, returns=values, pure=True),
+          st.functions(like=lambda a: a, returns=values, pure=True),
+      )
+      def composition_law(value: A, f: Callable[[A], A], g: Callable[[A], A]) -> None:
+          x = make(value)
+          assert x.fmap(lambda a: g(f(a))) == x.fmap(f).fmap(g)
+
+      identity_law()
+      composition_law()
   ```
 
-  Each concrete type's test module calls this with its own constructor and a couple of concrete `f`/`g` pairs, under `@given`.
+  `f` and `g` are generated per-example via `hypothesis.strategies.functions()` rather than hardcoded — `pure=True` keeps a given generated function returning the same output for the same input within one check, which the law's equality assertion depends on, and Hypothesis varies *and shrinks* the actual function used across runs instead of exercising just one fixed pair. Verified two ways: it passes across generated examples for a correct `fmap`, and — checked with a deliberately broken `fmap` (one that applied `f` twice) — it fails with a concrete counterexample, confirming the helper isn't vacuously true.
+
+  Each concrete type's test module calls this with its own constructor and a values strategy under `@given` via the helper — no per-type `f`/`g` to hand-pick.
 - Standard example-based tests too (matches the existing pattern for `Identity`/`Functional`): construction, a concrete `fmap` call, equality/hash behavior for `Const`.
 - 100% coverage, `mypy --strict` clean, TDD (test before implementation) throughout — no change from existing Code Requirements.
 
