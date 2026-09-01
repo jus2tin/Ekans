@@ -25,7 +25,7 @@ A reusable Hypothesis-based helper (in `tests/`, not part of the public package 
 
 ### T-003: Identity implements Functor
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-001, T-002
 
 Retrofit `Identity[A]` to inherit `Functor[A]` and implement `fmap`. Add its overload to the free `fmap` function. Law tests via the T-002 helper, plus a concrete example test. Update `docs/HOWTO.md`'s `Identity` section to replace the "Once Functor lands..." forward-reference with the real behavior.

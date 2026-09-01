@@ -1,9 +1,12 @@
 """Functor: mapping over a value without changing its container's shape."""
 
 from abc import abstractmethod
-from typing import Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar, overload
 
 from ekans.functional import Functional
+
+if TYPE_CHECKING:
+    from ekans.identity import Identity
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
@@ -31,12 +34,17 @@ class Functor(Functional, Generic[A_co]):
         raise NotImplementedError
 
 
-def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]:
+@overload
+def fmap(f: Callable[[A], B], functor: "Identity[A]") -> "Identity[B]": ...
+@overload
+def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]: ...
+def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]:  # noqa: E302
     """Free-function form of `Functor.fmap`; delegates to the method.
 
-    As concrete Functor types are added, this gains one `@overload` per
-    type so calls against a known concrete type keep a precise return
-    type (e.g. `Identity[B]` instead of the loose `Functor[B]` below).
+    As each new concrete Functor type is added, this gains its own
+    `@overload` (above the loose `Functor[A]` fallback, which must stay
+    last so mypy tries the precise overloads first) so calls against a
+    known concrete type keep a precise return type.
 
     Args:
         f: The function to apply to the wrapped value(s).

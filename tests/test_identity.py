@@ -1,5 +1,8 @@
 import pytest
+from functor_laws import assert_functor_laws
+from hypothesis import strategies as st
 
+from ekans.functor import fmap
 from ekans.identity import Identity
 
 
@@ -34,3 +37,15 @@ def test_is_usable_as_a_set_member() -> None:
         Identity(value=1),
         Identity(value=2),
     }
+
+
+def test_fmap_applies_the_function_to_the_wrapped_value() -> None:
+    assert Identity(value=1).fmap(str) == Identity(value="1")
+
+
+def test_free_fmap_delegates_to_the_method() -> None:
+    assert fmap(str, Identity(value=1)) == Identity(value="1")
+
+
+def test_satisfies_the_functor_laws() -> None:
+    assert_functor_laws(Identity, st.integers())

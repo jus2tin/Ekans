@@ -71,9 +71,17 @@ box.value = 7
 # dataclasses.FrozenInstanceError: cannot assign to field 'value'
 ```
 
-In Haskell this is `newtype Identity a = Identity a` — a type that exists almost entirely to prove a point. Once `Functor` lands in Ekans, `Identity` will be the textbook example of it: calling `box.map(str)` will turn `Identity(value=42)` into `Identity(value="42")` — same box, transformed insides, nothing else disturbed. That's the whole idea of a functor in one sentence: **change what's inside without changing the shape of the container.** `Identity` is the functor that changes the *least* — it's the control group.
+In Haskell this is `newtype Identity a = Identity a` — a type that exists almost entirely to prove a point. `Identity` is the textbook `Functor` (see that section below): calling `box.fmap(str)` turns `Identity(value=42)` into `Identity(value="42")` — same box, transformed insides, nothing else disturbed:
 
-Right now, before `Functor` exists, `Identity` is just that: a small, honest, immutable box. Think of it as a courier who picks up your package, carries it exactly as-is, and hands it back unopened. Not very exciting on its own — but every functor law anyone will ever write a Hypothesis test for gets checked against this box first, because if a law doesn't hold for the box that does nothing, it isn't going to hold for anything fancier either.
+```python
+box = Identity(value=42)
+box.fmap(str)  # Identity(value='42')
+
+from ekans.functor import fmap
+fmap(str, box)  # Identity(value='42') -- same thing, free-function form
+```
+
+That's the whole idea of a functor in one sentence: **change what's inside without changing the shape of the container.** `Identity` is the functor that changes the *least* — it's the control group: it's also `Identity`, not some illustrative stand-in, that every `Functor` law gets checked against first for exactly that reason — if a law doesn't hold for the box that does nothing, it isn't going to hold for anything fancier either.
 
 **A fun wrinkle: equality has a type, too.** In Haskell, `Identity 1 == Identity "a"` isn't a bug you catch at runtime — the compiler refuses to build it, because `Eq (Identity a)` only exists for a given `a`, and `Int` isn't `String`. Ekans gets the same guarantee, just enforced by mypy instead of `ghc`:
 
@@ -121,7 +129,7 @@ Box(value=5).fmap(str)   # Box(value='5')
 fmap(str, Box(value=5))  # Box(value='5') -- same thing, free-function form
 ```
 
-Both spellings do the same thing — `box.fmap(f)` and `fmap(f, box)` — pick whichever reads better at the call site. `Box` here is just an illustrative stand-in; `Identity` is the first type shipped in the package itself to actually implement `Functor` this way (see its section above once that lands).
+Both spellings do the same thing — `box.fmap(f)` and `fmap(f, box)` — pick whichever reads better at the call site. `Box` here is a stand-in for illustration; `Identity` (see its section above) is the real, shipped example, and its `fmap` is exactly this shape.
 
 **Two rules, not just a vibe.** For `fmap` to actually deserve the name "functor," it has to satisfy two laws, for every `Functor` type, forever:
 
