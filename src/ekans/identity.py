@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 
-from ekans.functor import Functor
+from ekans.apply import Apply
 from ekans.pointed import Pointed
 
 A = TypeVar("A")
@@ -11,7 +11,7 @@ B = TypeVar("B")
 
 
 @dataclass(frozen=True, eq=False)
-class Identity(Functor[A], Pointed[A], Generic[A]):
+class Identity(Pointed[A], Apply[A], Generic[A]):
     """Wraps a single value without adding any structure.
 
     Attributes:
@@ -47,6 +47,19 @@ class Identity(Functor[A], Pointed[A], Generic[A]):
             A new Identity wrapping `value`.
         """
         return Identity(value=value)
+
+    def ap(  # type: ignore[override]
+        self, f: "Identity[Callable[[A], B]]"
+    ) -> "Identity[B]":
+        """Apply the function wrapped in `f` to the wrapped value.
+
+        Args:
+            f: An Identity wrapping the function to apply.
+
+        Returns:
+            A new Identity wrapping the result of `f.value(self.value)`.
+        """
+        return Identity(value=f.value(self.value))
 
     # mypy treats narrowing __eq__'s parameter away from `object` as an
     # LSP violation ([override]); that narrowing is exactly the point here.

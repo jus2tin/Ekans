@@ -14,6 +14,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Const: the box that refuses to look](#const-the-box-that-refuses-to-look)
 - [Pointed: getting a value into a box](#pointed-getting-a-value-into-a-box)
 - [Reader: a box that's actually a function](#reader-a-box-thats-actually-a-function)
+- [Apply: when the function is also in a box](#apply-when-the-function-is-also-in-a-box)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -103,6 +104,13 @@ That happens because `Identity.__eq__` is typed against `Identity[A]` — the sa
 ```python
 Identity.point(5)  # Identity(value=5)
 Identity.point(5).fmap(str)  # Identity(value='5') -- point and fmap chain fine
+```
+
+`Identity` is also the first shipped `Apply` instance (see that section below): `.ap` unwraps both boxes and applies one to the other —
+
+```python
+wrapped_fn: Identity[Callable[[int], str]] = Identity(value=str)
+Identity(value=5).ap(wrapped_fn)  # Identity(value='5')
 ```
 
 ## Functor: doing something to what's inside
@@ -266,11 +274,60 @@ get_length("hello")  # 5 -- same as get_length.run("hello")
 
 That's the whole bridge back to plain Python: anywhere a `Callable[[R], A]` is expected — `map()`, composing with an ordinary function, whatever — a `Reader` can just be handed over directly, no `.run` required.
 
+## Apply: when the function is also in a box
+
+`fmap` covers a lot of ground, but it has one blind spot: the function you're mapping with always has to be a plain, ordinary function sitting outside any box. What happens when the function itself is *also* stuck inside a box? That's `Apply`.
+
+```python
+from dataclasses import dataclass
+from typing import Callable, Generic, TypeVar
+
+from ekans.apply import Apply, ap
+
+A = TypeVar("A")
+B = TypeVar("B")
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Apply[A], Generic[A]):
+    value: A
+
+    def fmap(self, f: Callable[[A], B]) -> "Box[B]":
+        return Box(value=f(self.value))
+
+    def ap(self, f: "Box[Callable[[A], B]]") -> "Box[B]":
+        return Box(value=f.value(self.value))
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and bool(self.value == other.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+number: Box[int] = Box(value=5)
+wrapped_str: Box[Callable[[int], str]] = Box(value=str)
+
+number.ap(wrapped_str)   # Box(value='5')
+ap(wrapped_str, number)  # Box(value='5') -- same thing, free-function form
+```
+
+Same convention as `fmap`: both the method and the free function put "the thing doing the transforming" first — `x.ap(f)` and `ap(f, x)`, matching `x.fmap(f)` and `fmap(f, x)`. `Box` here is a stand-in for illustration; `Identity` (see its section above) is the real, shipped example, and its `ap` is exactly this shape.
+
+**The law, and its honest limit.** `Apply` has exactly one law of its own, before `Applicative` adds more: applying wrapped functions one at a time, left to right, gives the same answer as composing them first and applying once —
+
+```
+w.ap(v.ap(u.fmap(compose))) == w.ap(v).ap(u)
+```
+
+— where `compose(g)` builds the function `f -> (a -> g(f(a)))`. It's `Functor`'s composition law, generalized to functions that are themselves wrapped.
+
+Worth knowing plainly: this law alone doesn't catch *every* bug. An `ap` that quietly ignores the function it's given and just hands back `self` unchanged satisfies this law perfectly — both sides collapse to the same "untouched" answer no matter what `u`, `v`, or `w` actually are. It took writing a genuinely wrong `ap` (one that double-applies the function) to actually see the law fail; the "ignore the argument" bug sailed straight through. That's not a flaw in the test — it's a real, inherent limit of associativity by itself, and it's exactly why `ap` still gets an ordinary example-based test (`box.ap(wrapped) == expected`) alongside the property test, not instead of it.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
 
-- **Apply** — what happens when the function you want to call is *also* stuck inside a box (`ap`).
 - **Applicative** — `Pointed` and `Apply` shake hands and agree to work together.
 - **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.

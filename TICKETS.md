@@ -96,20 +96,22 @@ Spec: [`docs/specs/apply.md`](docs/specs/apply.md)
 
 ### T-012: Apply ABC
 
-**Status:** Open
+**Status:** Closed
 
-Add `src/ekans/apply.py` with the `Apply[A_co]` abstract class per the spec: `Functor[A_co]` subclass, abstract `ap` method, plus the free `ap` function (function-first argument order) with its fallback `@overload` in place from the start, mirroring `fmap`'s pattern. Includes the real `docs/HOWTO.md` `Apply` section, replacing the current stub.
+Add `src/ekans/apply.py` with the `Apply[A_co]` abstract class per the spec: `Functor[A_co]` subclass, abstract `ap` method, plus the free `ap` function (function-first argument order) as a single plain-typed function for now, same as `fmap`'s T-001 shape — no `Identity` overload yet, since `Identity` doesn't implement `Apply` until T-014 (an earlier draft got this wrong; corrected during implementation, see the spec's Design section). Includes the real `docs/HOWTO.md` `Apply` section, replacing the current stub.
+
+Amended during T-013: `Apply` also re-declares `fmap`, narrowing its return type to `Apply[B]` (inherited from `Functor` it would otherwise stay `Functor[B]`) — needed for the law helper's chained `.fmap(...)`/`.ap(...)` calls to type-check; see the spec's Design section.
 
 ### T-013: Apply associativity law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-012
 
 `tests/apply_laws.py`: `assert_apply_law(make, values, equal=None)` per the spec's Testing strategy — generates `w`'s value plus two endofunctions via `hypothesis.strategies.functions()`, with a small typed `_compose` helper alongside it. T-014 is its first caller.
 
 ### T-014: Identity implements Apply
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-012, T-013
 
 Retrofit `Identity[A]` to also inherit `Apply[A]` (alongside its existing `Functor[A]`/`Pointed[A]`) and implement `ap`. Add its overload to the free `ap` function. Law test via the T-013 helper, plus a concrete example test. Update `docs/HOWTO.md`'s `Identity` section with a short `ap` addition.

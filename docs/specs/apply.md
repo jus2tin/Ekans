@@ -18,11 +18,17 @@ Add `Apply[A]`, the next entry in the "Endofunctor based structures" branch: an 
 ```python
 class Apply(Functor[A_co], Generic[A_co]):
     @abstractmethod
+    def fmap(self, f: Callable[[A_co], B]) -> "Apply[B]":
+        raise NotImplementedError
+
+    @abstractmethod
     def ap(self, f: "Apply[Callable[[A_co], B]]") -> "Apply[B]":
         raise NotImplementedError
 ```
 
 `self` is the wrapped *value* (`Apply[A_co]`); `f` is the wrapped *function*. This matches the phrasing in the task that requested this spec — "applying a wrapped function `F[Callable[[A], B]]` to a wrapped value `F[A]`" — and corresponds to Haskell's `f <*> x` as `x.ap(f)` (function argument first in Haskell's operator, but the *value* is `self` here since `ap` is a method on the value being applied to, matching how `fmap` and `point` are already methods on their own subject).
+
+**Correction found during T-013, applied to T-012's already-committed file (not yet merged):** the ABC also needs to re-declare `fmap`, narrowing its return type from the inherited `Functor.fmap`'s `Functor[B]` down to `Apply[B]` — otherwise nothing statically knows that mapping over an `Apply` value keeps it an `Apply` (as opposed to degrading to the looser `Functor`), and the law-checking helper (which chains `.fmap(...)` and `.ap(...)` calls on the same abstractly-typed value) can't type-check without it. Purely a type-level narrowing — still abstract, no new behavior, and every concrete `Apply` subclass already narrows `fmap` further to its own precise shape anyway (same pattern `Functor.fmap` itself already establishes).
 
 Each concrete type overrides `ap` with its own precise parameter and return type:
 
@@ -39,15 +45,13 @@ Verified against `mypy --strict`: the override needs `# type: ignore[override]` 
 ### Free function: `ap(f, x)`, function first
 
 ```python
-@overload
-def ap(f: "Identity[Callable[[A], B]]", x: "Identity[A]") -> "Identity[B]": ...
-@overload
-def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]: ...
-def ap(f, x):
+def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]:
     return x.ap(f)
 ```
 
-Verified precise: `ap(wrapped_fn, wrapped_value)` reveals the concrete subtype (e.g. `Identity[str]`), not the loose fallback — same overload-per-type pattern as `fmap`, no `point`-style precision gotcha, since both arguments here are already-constructed values (unlike `point`'s bare class reference).
+Ships as a single plain-typed function for T-012, not an `@overload` set — same reasoning as `fmap`'s T-001 shape: mypy requires 2+ variants for `@overload` to apply, and there's only one signature until a concrete type actually implements `Apply`. **Correction found during T-012's implementation, not caught during spec review:** an earlier draft of this section (and the signature posted for approval) included an `Identity` overload from the start. That's wrong — `Identity` doesn't implement `Apply` until T-014, so referencing `Identity[Callable[[A], B]]` as an `Apply`-compatible overload before then is asserting something false, and mypy correctly rejected the overload/implementation pair as inconsistent (`Overloaded function implementation does not accept all possible parameters of signature 1`). Fixed to match `fmap`'s actual precedent: the overload set grows once `Identity` (T-014) really does implement `Apply`, same as `fmap`'s first `Identity` overload only arrived in T-003, not T-001.
+
+Once `Identity` implements `Apply` (T-014), `ap(wrapped_fn, wrapped_value)` is verified to reveal the concrete subtype (e.g. `Identity[str]`), not the loose fallback — same overload-per-type pattern as `fmap`, no `point`-style precision gotcha, since both arguments here are already-constructed values (unlike `point`'s bare class reference).
 
 ### The associativity law, and its honest limitation
 
