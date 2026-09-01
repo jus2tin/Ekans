@@ -13,6 +13,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Functor: doing something to what's inside](#functor-doing-something-to-whats-inside)
 - [Const: the box that refuses to look](#const-the-box-that-refuses-to-look)
 - [Pointed: getting a value into a box](#pointed-getting-a-value-into-a-box)
+- [Reader: a box that's actually a function](#reader-a-box-thats-actually-a-function)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -218,6 +219,32 @@ Box.point(42)  # Box(value=42)
 That difference has a real consequence: `fmap` also gets a free function (`fmap(f, box)`) because the box being passed in already *knows* its own type parameter — mypy reads that straight off the value. `point` doesn't get that luxury. A free `point(Box, 42)` would only ever have a bare class reference to work with, and — checked this directly — it silently type-checks as `Box[Any]` rather than `Box[int]`, no error, just quietly losing the precision that makes any of this worth doing in the first place. `Box.point(42)` has no such problem: it's exactly as precise as `Box(value=42)`. So `point` stays classmethod-only — one honest way to spell it, instead of two, one of which lies to you a little.
 
 In Haskell this is `pure` (or `return`, historically) — the thing that lifts a plain value into `f a` for whatever `Applicative`/`Monad` `f` you're working in. `Pointed` on its own doesn't do much more than that lift; it earns its keep once it's combined with `Apply` into `Applicative` later, the same way `Pointed` + `Apply` gives you `pure` *and* `<*>` together in Haskell.
+
+## Reader: a box that's actually a function
+
+Every box so far holds something you could point at: an int, a string, a value sitting there waiting. `Reader[R, A]` holds something stranger: a function, `R -> A` — "give me an environment, I'll give you a result." Think dependency injection, minus the framework: a `Reader[Config, int]` is a computation that hasn't run yet, waiting on a `Config` to actually produce its `int`.
+
+```python
+from ekans.reader import Reader
+
+get_length: Reader[str, int] = Reader(run=len)
+get_length.run("hello")  # 5
+```
+
+`fmap` works exactly like everywhere else — transform what comes out, leave the box's shape alone — except here "what comes out" is the function's eventual result, not something already sitting in the box:
+
+```python
+from ekans.functor import fmap
+
+louder: Reader[str, str] = get_length.fmap(lambda n: f"{n} characters!")
+louder.run("hello")  # '5 characters!'
+
+fmap(lambda n: f"{n} characters!", get_length).run("hello")  # same thing
+```
+
+Under the hood, `fmap(f, reader)` is just function composition: it builds a *new* `Reader` whose `run` is `f` glued onto the end of the old `run`. Nothing gets called until you actually call `.run(env)` — `Reader` is lazy in exactly the sense that a function you haven't called yet is lazy.
+
+**The equality wrinkle, explained as real theory, not an apology.** Every other box in this guide gets `==`: `Identity(value=1) == Identity(value=1)` is `True`. `Reader` doesn't, on purpose. Two Python functions that compute the same thing are never `==` to each other — Python compares functions by identity, not by behavior, and there's no way around that from inside the language. Giving `Reader` a `__eq__` that compares its wrapped function directly would be worse than useless: `reader.fmap(f)` builds a brand-new closure every time, so it would never equal anything, ever, without ever *looking* broken — no error, just an equality operator that silently always says no. The honest move is to not pretend: `Reader` just doesn't support `==` in any meaningful sense. If you need to know whether two `Reader`s behave the same, the real question is "do they produce the same result for the same environment?" — which means calling `.run(env)` on both and comparing outputs, for whichever environments you actually care about. That's *extensional* equality (functions are equal if they agree everywhere), and it's the same idea Ekans' own test suite leans on to verify `Reader`'s Functor laws, since `==` isn't available to check them the usual way.
 
 ## Coming soon
 

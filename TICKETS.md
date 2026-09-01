@@ -72,7 +72,7 @@ Add an optional `equal` parameter to `tests/functor_laws.py`'s `assert_functor_l
 
 ### T-009: Reader[R, A] concrete type + Functor instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-007
 
 `src/ekans/reader.py`: `Reader[R, A]` (`Functional`-based frozen dataclass, `run: Callable[[R], A]`), `Functor[A]` instance via composition. Deliberately no `__eq__`/`__hash__` override — see the spec's Equality section for why. Law tests via the T-007-extended helper with a comparator sampling environment values. Add its overload to the free `fmap` function. Real `docs/HOWTO.md` `Reader` section, replacing the current stub.
