@@ -106,6 +106,13 @@ Identity.point(5)  # Identity(value=5)
 Identity.point(5).fmap(str)  # Identity(value='5') -- point and fmap chain fine
 ```
 
+`Identity` is also the first shipped `Apply` instance (see that section below): `.ap` unwraps both boxes and applies one to the other —
+
+```python
+wrapped_fn: Identity[Callable[[int], str]] = Identity(value=str)
+Identity(value=5).ap(wrapped_fn)  # Identity(value='5')
+```
+
 ## Functor: doing something to what's inside
 
 `Functor` is the first real capability in the hierarchy — everything before it (`Functional`, `Identity`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.
@@ -305,7 +312,7 @@ number.ap(wrapped_str)   # Box(value='5')
 ap(wrapped_str, number)  # Box(value='5') -- same thing, free-function form
 ```
 
-Same convention as `fmap`: both the method and the free function put "the thing doing the transforming" first — `x.ap(f)` and `ap(f, x)`, matching `x.fmap(f)` and `fmap(f, x)`. `Box` here is illustrative, same as it was for `Functor` — no shipped type implements `Apply` yet.
+Same convention as `fmap`: both the method and the free function put "the thing doing the transforming" first — `x.ap(f)` and `ap(f, x)`, matching `x.fmap(f)` and `fmap(f, x)`. `Box` here is a stand-in for illustration; `Identity` (see its section above) is the real, shipped example, and its `ap` is exactly this shape.
 
 **The law, and its honest limit.** `Apply` has exactly one law of its own, before `Applicative` adds more: applying wrapped functions one at a time, left to right, gives the same answer as composing them first and applying once —
 

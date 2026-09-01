@@ -111,7 +111,7 @@ Amended during T-013: `Apply` also re-declares `fmap`, narrowing its return type
 
 ### T-014: Identity implements Apply
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-012, T-013
 
 Retrofit `Identity[A]` to also inherit `Apply[A]` (alongside its existing `Functor[A]`/`Pointed[A]`) and implement `ap`. Add its overload to the free `ap` function. Law test via the T-013 helper, plus a concrete example test. Update `docs/HOWTO.md`'s `Identity` section with a short `ap` addition.

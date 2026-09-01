@@ -1,8 +1,12 @@
+from typing import Callable
+
 import pytest
+from apply_laws import assert_apply_law
 from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
+from ekans.apply import ap
 from ekans.functor import fmap
 from ekans.identity import Identity
 
@@ -65,3 +69,17 @@ def test_point_then_fmap_chains_correctly() -> None:
 @given(st.integers())
 def test_point_wraps_the_value_unchanged(value: int) -> None:
     assert Identity.point(value).value == value
+
+
+def test_ap_applies_the_wrapped_function() -> None:
+    wrapped_fn: Identity[Callable[[int], str]] = Identity(value=str)
+    assert Identity(value=5).ap(wrapped_fn) == Identity(value="5")
+
+
+def test_free_ap_delegates_to_the_method() -> None:
+    wrapped_fn: Identity[Callable[[int], str]] = Identity(value=str)
+    assert ap(wrapped_fn, Identity(value=5)) == Identity(value="5")
+
+
+def test_satisfies_the_apply_law() -> None:
+    assert_apply_law(Identity, st.integers())

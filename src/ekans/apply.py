@@ -1,9 +1,12 @@
 """Apply: applying a wrapped function to a wrapped value."""
 
 from abc import abstractmethod
-from typing import Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar, overload
 
 from ekans.functor import Functor
+
+if TYPE_CHECKING:
+    from ekans.identity import Identity
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
@@ -50,16 +53,17 @@ class Apply(Functor[A_co], Generic[A_co]):
         raise NotImplementedError
 
 
-def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]:
+@overload
+def ap(f: "Identity[Callable[[A], B]]", x: "Identity[A]") -> "Identity[B]": ...
+@overload
+def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]: ...
+def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]:  # noqa: E302
     """Free-function form of `Apply.ap`; delegates to the method.
 
     As each new concrete Apply type is added, this gains its own
-    `@overload` (above a loose `Apply[A]` fallback) so calls against a
-    known concrete type keep a precise return type -- ships as a
-    single plain-typed function for now since only one signature
-    exists until the first concrete type implements Apply (mypy
-    requires 2+ variants for `@overload` to apply), same as `fmap`'s
-    T-001 shape before Identity implemented Functor.
+    `@overload` (above the loose `Apply[A]` fallback, which must stay
+    last) so calls against a known concrete type keep a precise
+    return type.
 
     Args:
         f: A wrapped function to apply.
