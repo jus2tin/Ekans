@@ -8,7 +8,7 @@ from ekans.functional import Functional
 def test_setattr_raises_attribute_error() -> None:
     obj = Functional()
     with pytest.raises(AttributeError):
-        obj.value = 1  # type: ignore[attr-defined]
+        obj.value = 1
 
 
 def test_delattr_raises_attribute_error() -> None:

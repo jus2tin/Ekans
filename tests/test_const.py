@@ -35,7 +35,7 @@ def test_equal_values_hash_the_same() -> None:
 
 
 def test_is_immutable() -> None:
-    const = Const(value=1)
+    const: Const[int, object] = Const(value=1)
     with pytest.raises(AttributeError):
         const.value = 2  # type: ignore[misc]
 
