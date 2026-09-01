@@ -29,7 +29,7 @@ mypy src --strict
 - From this root capabilities are added on by classes which inherit from it in as small steps as possible. For instance instead of directly creating an Applicative class that requires both `pure` and `ap` there will be a Pointed class which requires `point` and an Apply class which requires `ap`. For convenience there will be an Applicative class that inherits from both.
 - The same pattern applies to Monad: rather than requiring `bind` directly on Applicative, there will be a Bind class which requires `bind`, and Monad will inherit from both Applicative and Bind for convenience.
 - We will follow the standard family tree of type classes from Haskell as closely as possible.
-- This package will inherit from toolz and use it's primitives as much as possible.
+- This package will inherit from toolz and use its primitives as much as possible.
 - The primitives this package exports will be extremely opinionated and they will not feel very pythonic. We will try to get as close to pure typed functional code as we can within Python.
 - However at the same time we will also make sure we stay as close to Python's design philosophy as these design choices allow.
 - We will make it as easy as possible for the user of this package to use structural pattern matching on it's exported types.
@@ -60,7 +60,7 @@ mypy src --strict
 
 ### Why Star matters
 
-- `Star[F, A, B]` (wraps `A -> F[B]`) is a priority `Profunctor` instance, not just a rounding-out-the-set addition. When `F` is a `Monad`, composing two `Star`s is Kleisli composition — chaining effectful functions end to end. Give `Star` its own `Category` instance built on that composition and you've got Haskell's `Arrow`: an `Arrow` isn't just "Star-like", it *is* a `Star` that's also a `Category`. Comes essentially free once `Category`, `Strong`, and `Monad` already exist, rather than needing its own bespoke machinery.
+- `Star[F, A, B]` (wraps `A -> F[B]`) is a priority `Profunctor` instance, not just a rounding-out-the-set addition. When `F` is a `Monad`, composing two `Star`s is Kleisli composition — chaining effectful functions end to end. Giving `Star` its own `Category` instance built on that composition reproduces Haskell's `Kleisli` arrow exactly — the `Arrow` instance used for monadic effects. (Not every `Arrow` is Kleisli-shaped — plain functions form an `Arrow` too, with no box involved at all — but the Kleisli case, the one people actually reach for, is precisely `Star` plus `Category`.) Comes essentially free once `Category`, `Strong`, and `Monad` already exist, rather than needing its own bespoke machinery.
 
 ## Type hierarchy
 
