@@ -1,6 +1,6 @@
 # Spec: Reader
 
-**Status:** Draft — amendment awaiting review (adds `__call__`; original `Functor`/`Pointed` design already implemented and shipped)
+**Status:** Approved
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Reader"
 
 ## Summary
