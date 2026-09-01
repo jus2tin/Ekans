@@ -108,6 +108,7 @@ mypy src tests --strict
 
 - 100% test coverage, enforced via pytest.
 - Strict TDD: red-green-refactor. Write the failing test before the implementation, for every function and class — no exceptions.
+- The red step must be shown, not just asserted. After writing a failing test, actually run it and show the real pytest output (a genuine failure, or a collection/import error if the code under test doesn't exist yet) *before* writing a single line of implementation. Never claim or assume a test is red without having actually run it.
 - Every Functor/Applicative/Monad (etc.) instance must additionally pass property-based law tests written with Hypothesis — identity, composition, associativity, and any other laws that type class requires. Example-based pytest tests alone aren't sufficient for type class instances.
 
 ## Tooling
