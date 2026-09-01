@@ -1,15 +1,16 @@
 """The identity functor: a trivial wrapper around a single value."""
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 
-from ekans.functional import Functional
+from ekans.functor import Functor
 
 A = TypeVar("A")
+B = TypeVar("B")
 
 
 @dataclass(frozen=True, eq=False)
-class Identity(Functional, Generic[A]):
+class Identity(Functor[A], Generic[A]):
     """Wraps a single value without adding any structure.
 
     Attributes:
@@ -17,6 +18,17 @@ class Identity(Functional, Generic[A]):
     """
 
     value: A
+
+    def fmap(self, f: Callable[[A], B]) -> "Identity[B]":
+        """Apply `f` to the wrapped value.
+
+        Args:
+            f: The function to apply.
+
+        Returns:
+            A new Identity wrapping the result of `f(self.value)`.
+        """
+        return Identity(value=f(self.value))
 
     def __eq__(self, other: "Identity[A]") -> bool:  # type: ignore[override]
         """Compare against another Identity wrapping the same type.
