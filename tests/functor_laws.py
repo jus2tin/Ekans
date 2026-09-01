@@ -4,7 +4,7 @@ Test infrastructure, not part of the public `ekans` package -- see
 docs/specs/functor.md's Testing strategy section.
 """
 
-from typing import Callable, TypeVar
+from typing import Callable, Optional, TypeVar
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -28,18 +28,25 @@ def _identity(a: A) -> A:
 def assert_functor_laws(
     make: Callable[[A], Functor[A]],
     values: SearchStrategy[A],
+    equal: Optional[Callable[[Functor[A], Functor[A]], bool]] = None,
 ) -> None:
     """Assert the Functor identity and composition laws for `make`.
 
     Args:
         make: Constructs a Functor instance wrapping a given value.
         values: A Hypothesis strategy generating values to wrap.
+        equal: How to compare two Functor instances for the purpose of
+            the laws below. Defaults to `==`. Pass this when the
+            Functor wraps something without meaningful structural
+            equality (e.g. a function) -- see docs/specs/reader.md's
+            Testing implication section for why.
     """
+    eq = equal if equal is not None else (lambda a, b: a == b)
 
     @given(values)
     def identity_law(value: A) -> None:
         x = make(value)
-        assert x.fmap(lambda a: a) == x
+        assert eq(x.fmap(lambda a: a), x)
 
     @given(
         values,
@@ -48,7 +55,7 @@ def assert_functor_laws(
     )
     def composition_law(value: A, f: Callable[[A], A], g: Callable[[A], A]) -> None:
         x = make(value)
-        assert x.fmap(lambda a: g(f(a))) == x.fmap(f).fmap(g)
+        assert eq(x.fmap(lambda a: g(f(a))), x.fmap(f).fmap(g))
 
     identity_law()
     composition_law()
