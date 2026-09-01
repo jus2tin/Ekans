@@ -142,9 +142,10 @@ For any new type class or concrete type (not just Functor — this is the standi
 
 1. **Spec first.** Claude drafts a spec at `docs/specs/<name>.md` (see `docs/specs/functor.md` for the template shape: Status, Summary, Motivation, Design, Concrete instances in scope, Testing strategy, Documentation requirements, Out of scope, Open questions/risks). Include law statements or other formal behavior contracts explicitly, not just prose. You review and edit it — nothing gets built against an unreviewed spec.
 2. **Tickets derive from the spec, not the other way around.** Once the spec is stable, Claude breaks it into tickets in `TICKETS.md` (see that file's own header for format/lifecycle) — one ticket per deliverable, each naming which spec it came from.
-3. **Implementation follows the existing Code Requirements and TDD** (see Testing above) per ticket.
-4. **Claude closes each ticket itself** once its Definition of Done is verifiably met — no separate sign-off step. `docs/HOWTO.md` gets updated as part of the ticket that introduces the documented concept, not as an afterthought.
-5. The spec+ticket artifacts themselves go through the normal branch+PR workflow like any other change.
+3. **Signature review before implementation.** Before writing any code for a ticket, Claude posts just the Python signature(s) and docstring(s) it plans to use — no bodies, no tests yet. Wait for an explicit "approved" before writing anything else. This is per ticket, not per spec — a code sketch already shown in the spec doesn't count as pre-approval for the ticket's actual signature.
+4. **Implementation follows the existing Code Requirements and TDD** (see Testing above) per ticket, once its signature is approved.
+5. **Claude closes each ticket itself** once its Definition of Done is verifiably met — no separate sign-off step. `docs/HOWTO.md` gets updated as part of the ticket that introduces the documented concept, not as an afterthought.
+6. The spec+ticket artifacts themselves go through the normal branch+PR workflow like any other change.
 
 ## Code Requirements
 
