@@ -21,6 +21,8 @@ def test_not_equal_when_values_differ() -> None:
 def test_is_immutable() -> None:
     identity = Identity(value=1)
     with pytest.raises(AttributeError):
+        # mypy statically knows this frozen field is read-only ([misc]);
+        # we're deliberately testing the runtime FrozenInstanceError it raises.
         identity.value = 2  # type: ignore[misc]
 
 

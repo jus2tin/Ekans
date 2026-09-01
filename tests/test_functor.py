@@ -26,6 +26,8 @@ class _Box(Functor[A], Generic[A]):
 
 def test_cannot_instantiate_functor_directly() -> None:
     with pytest.raises(TypeError):
+        # Functor is abstract; mypy correctly flags direct instantiation
+        # ([abstract]), which is exactly what we're confirming raises.
         Functor()  # type: ignore[abstract]
 
 
@@ -44,6 +46,8 @@ def test_free_fmap_delegates_to_the_method() -> None:
 def test_immutability_still_holds_through_functor() -> None:
     box = _Box(value=1)
     with pytest.raises(AttributeError):
+        # mypy statically knows this frozen field is read-only ([misc]);
+        # we're deliberately testing the runtime FrozenInstanceError it raises.
         box.value = 2  # type: ignore[misc]
 
 

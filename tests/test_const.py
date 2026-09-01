@@ -37,6 +37,8 @@ def test_equal_values_hash_the_same() -> None:
 def test_is_immutable() -> None:
     const: Const[int, object] = Const(value=1)
     with pytest.raises(AttributeError):
+        # mypy statically knows this frozen field is read-only ([misc]);
+        # we're deliberately testing the runtime FrozenInstanceError it raises.
         const.value = 2  # type: ignore[misc]
 
 

@@ -30,7 +30,10 @@ class _BrokenBox(Functor[A], Generic[A]):
     value: A
 
     def fmap(self, f: Callable[[A], B]) -> "_BrokenBox[B]":
-        # Deliberately unlawful: applies f twice instead of once.
+        # Deliberately unlawful: applies f twice instead of once, to
+        # prove the law helper catches it. f only accepts A, but the
+        # inner f(self.value) already produced a B, so mypy correctly
+        # rejects passing that B back into f ([arg-type]).
         return _BrokenBox(value=f(f(self.value)))  # type: ignore[arg-type]
 
     def __eq__(self, other: object) -> bool:

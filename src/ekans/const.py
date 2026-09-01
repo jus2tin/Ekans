@@ -35,6 +35,8 @@ class Const(Functor[B], Generic[A, B]):
         """
         return Const(value=self.value)
 
+    # mypy treats narrowing __eq__'s parameter away from `object` as an
+    # LSP violation ([override]); that narrowing is exactly the point here.
     def __eq__(self, other: "Const[A, B]") -> bool:  # type: ignore[override]
         """Compare against another Const holding the same type of value.
 
