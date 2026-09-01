@@ -61,3 +61,9 @@ def test_abstract_ap_raises_if_not_overridden() -> None:
     wrapped_fn = _Box(value=str)
     with pytest.raises(NotImplementedError):
         Apply.ap(box, wrapped_fn)
+
+
+def test_abstract_fmap_raises_if_not_overridden() -> None:
+    box = _Box(value=1)
+    with pytest.raises(NotImplementedError):
+        Apply.fmap(box, str)

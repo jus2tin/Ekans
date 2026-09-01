@@ -18,11 +18,17 @@ Add `Apply[A]`, the next entry in the "Endofunctor based structures" branch: an 
 ```python
 class Apply(Functor[A_co], Generic[A_co]):
     @abstractmethod
+    def fmap(self, f: Callable[[A_co], B]) -> "Apply[B]":
+        raise NotImplementedError
+
+    @abstractmethod
     def ap(self, f: "Apply[Callable[[A_co], B]]") -> "Apply[B]":
         raise NotImplementedError
 ```
 
 `self` is the wrapped *value* (`Apply[A_co]`); `f` is the wrapped *function*. This matches the phrasing in the task that requested this spec — "applying a wrapped function `F[Callable[[A], B]]` to a wrapped value `F[A]`" — and corresponds to Haskell's `f <*> x` as `x.ap(f)` (function argument first in Haskell's operator, but the *value* is `self` here since `ap` is a method on the value being applied to, matching how `fmap` and `point` are already methods on their own subject).
+
+**Correction found during T-013, applied to T-012's already-committed file (not yet merged):** the ABC also needs to re-declare `fmap`, narrowing its return type from the inherited `Functor.fmap`'s `Functor[B]` down to `Apply[B]` — otherwise nothing statically knows that mapping over an `Apply` value keeps it an `Apply` (as opposed to degrading to the looser `Functor`), and the law-checking helper (which chains `.fmap(...)` and `.ap(...)` calls on the same abstractly-typed value) can't type-check without it. Purely a type-level narrowing — still abstract, no new behavior, and every concrete `Apply` subclass already narrows `fmap` further to its own precise shape anyway (same pattern `Functor.fmap` itself already establishes).
 
 Each concrete type overrides `ap` with its own precise parameter and return type:
 

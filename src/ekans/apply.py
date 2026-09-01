@@ -19,6 +19,25 @@ class Apply(Functor[A_co], Generic[A_co]):
     """
 
     @abstractmethod
+    def fmap(self, f: Callable[[A_co], B]) -> "Apply[B]":
+        """Apply `f` to the wrapped value(s), preserving the container's shape.
+
+        Narrows `Functor.fmap`'s return type from `Functor[B]` to
+        `Apply[B]` -- anything implementing `Apply` stays an `Apply`
+        after `fmap`, which the inherited `Functor` signature alone
+        doesn't express. Purely a type-level narrowing (still
+        abstract, no new behavior) -- concrete subclasses narrow it
+        further to their own precise shape, same as `Functor.fmap`.
+
+        Args:
+            f: The function to apply to the wrapped value(s).
+
+        Returns:
+            A new Apply of the same shape, wrapping the mapped value(s).
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def ap(self, f: "Apply[Callable[[A_co], B]]") -> "Apply[B]":
         """Apply the function wrapped in `f` to the value wrapped in `self`.
 
