@@ -71,6 +71,15 @@ Verified backward-compatible: `Identity`'s existing law tests (which don't pass 
 
 This generalizes the helper for any future computation-wrapping type with the same problem (e.g. a later `State[S, A]`, which wraps `S -> (A, S)`) without duplicating law-checking logic per type.
 
+### `__call__`: bridging to plain Python callables
+
+```python
+def __call__(self, r: R) -> A:
+    return self.run(r)
+```
+
+Verified against `mypy --strict`: `reader(5)` and `reader.run(5)` both reveal the same precise type, no friction, no `type: ignore` needed — `__call__` isn't inherited from any base class `Reader` already has, so there's nothing to narrow or override. Delegates directly to `run`; not part of `Functor`/`Pointed`, just a Python-ergonomics addition so a `Reader` can be passed anywhere a plain `Callable[[R], A]` is expected (e.g. `map()`, or composed with other plain functions) without callers needing to remember `.run(...)`.
+
 ## Concrete instances in scope
 
 - **`Reader[R, A]`** — the type itself, both `Functor` and `Pointed` instances, in this round (unlike `Identity`/`Const`, which got `Functor` and `Pointed` as separate rounds — `Reader`'s `Pointed` instance has no `Const`-style blocker, so there's no reason to split it here).
