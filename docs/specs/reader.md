@@ -1,6 +1,6 @@
 # Spec: Reader
 
-**Status:** Approved
+**Status:** Draft — amendment awaiting review (adds `__call__`; original `Functor`/`Pointed` design already implemented and shipped)
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Reader"
 
 ## Summary
@@ -70,6 +70,15 @@ def assert_functor_laws(
 Verified backward-compatible: `Identity`'s existing law tests (which don't pass `equal`) still pass unchanged against the extended signature. `Reader`'s law tests pass a comparator that samples several environment values and compares `.run(env)` outputs — extensional equality (functions are equal if they agree on every input; sampling approximates that, the same principle Hypothesis already applies to values). Verified this genuinely catches breakage, not just passing vacuously, against a deliberately unlawful `Reader` (one that double-applies `f`).
 
 This generalizes the helper for any future computation-wrapping type with the same problem (e.g. a later `State[S, A]`, which wraps `S -> (A, S)`) without duplicating law-checking logic per type.
+
+### `__call__`: bridging to plain Python callables
+
+```python
+def __call__(self, r: R) -> A:
+    return self.run(r)
+```
+
+Verified against `mypy --strict`: `reader(5)` and `reader.run(5)` both reveal the same precise type, no friction, no `type: ignore` needed — `__call__` isn't inherited from any base class `Reader` already has, so there's nothing to narrow or override. Delegates directly to `run`; not part of `Functor`/`Pointed`, just a Python-ergonomics addition so a `Reader` can be passed anywhere a plain `Callable[[R], A]` is expected (e.g. `map()`, or composed with other plain functions) without callers needing to remember `.run(...)`.
 
 ## Concrete instances in scope
 
