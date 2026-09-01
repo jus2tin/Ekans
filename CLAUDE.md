@@ -60,7 +60,7 @@ mypy src --strict
 
 ### Why Star matters
 
-- `Star[F, A, B]` (wraps `A -> F[B]`) is a priority `Profunctor` instance, not just a rounding-out-the-set addition. When `F` is a `Monad`, composing two `Star`s is Kleisli composition — chaining effectful functions end to end. That makes `Star` a more powerful stand-in for Haskell's `Arrow`, built for free once `Category`, `Strong`, and `Monad` exist rather than needing its own machinery.
+- `Star[F, A, B]` (wraps `A -> F[B]`) is a priority `Profunctor` instance, not just a rounding-out-the-set addition. When `F` is a `Monad`, composing two `Star`s is Kleisli composition — chaining effectful functions end to end. Give `Star` its own `Category` instance built on that composition and you've got Haskell's `Arrow`: an `Arrow` isn't just "Star-like", it *is* a `Star` that's also a `Category`. Comes essentially free once `Category`, `Strong`, and `Monad` already exist, rather than needing its own bespoke machinery.
 
 ## Type hierarchy
 
