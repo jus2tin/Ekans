@@ -79,17 +79,17 @@ mypy src --strict
         - Category
         - Profunctor
             - Strong
-            - Star
 
 ### First concrete types
 
 - `Identity[A]` (the identity functor) — the first concrete type to implement, to exercise the abstract hierarchy end-to-end before building anything more elaborate like `Maybe` or `Either`.
-- `Forget[A]` (`data Forget a = Forget`) — a nullary/phantom type: it carries no runtime field, `A` exists only at the type level, and every value of `Forget[A]` is interchangeable.
-- `Const[A, B]` (`data Const a b = Const a`) — related but distinct from `Forget`: it holds a real runtime value of type `A` and ignores `B` entirely. This is the type that actually exercises `Functor` over its second parameter (mapping over `B` is a no-op since nothing of that type exists to touch) — worth adding alongside `Forget`.
+- `Proxy[A]` (`data Proxy a = Proxy`) — a nullary/phantom type: it carries no runtime field, `A` exists only at the type level, and every value of `Proxy[A]` is interchangeable. Named after Haskell's `Data.Proxy`, deliberately *not* called `Forget` — the `profunctors` package's `Forget r a b = Forget (a -> r)` is a different, non-nullary profunctor (it holds a real function producing `r`; only `b` is phantom). If we ever want that one too, it gets its own name so the two don't collide.
+- `Const[A, B]` (`data Const a b = Const a`) — related but distinct from `Proxy`: it holds a real runtime value of type `A` and ignores `B` entirely. This is the type that actually exercises `Functor` over its second parameter (mapping over `B` is a no-op since nothing of that type exists to touch) — worth adding alongside `Proxy`.
+- `Star[F, A, B]` (`data Star f a b = Star (a -> f b)`) — wraps a function that returns a value inside a functor `F` instead of a plain one. Gets `Profunctor`/`Strong` once `F: Functor`, and — see "Why Star matters" above — a `Category` instance once `F: Monad`, which is Kleisli composition. A concrete type, not an abstract class, so it lives here rather than in the Type hierarchy above.
 
 ## File organization
 
-- One file per class: e.g. `functional.py`, `functor.py`, `monad.py`, `identity.py`, `forget.py`. Mirrors the Type hierarchy above rather than grouping multiple classes into category modules.
+- One file per class: e.g. `functional.py`, `functor.py`, `monad.py`, `identity.py`, `proxy.py`. Mirrors the Type hierarchy above rather than grouping multiple classes into category modules.
 
 ## Conventions
 
@@ -125,7 +125,7 @@ mypy src --strict
 
 - This is a personal experiment, not a team project, but part of the point is practicing a heavier, more deliberate workflow with Claude — so don't default to "small project, skip the ceremony."
 - Branching: feature branches + PRs, even though it's solo — practicing that flow is part of the goal.
-- Commits: one commit per type/class. Each type class or concrete type (e.g. `Identity`, `Forget`) lands as its own reviewed commit rather than being batched with others.
+- Commits: one commit per type/class. Each type class or concrete type (e.g. `Identity`, `Proxy`) lands as its own reviewed commit rather than being batched with others.
 - No print()/logging requirement — dropped. A pure functional library shouldn't be reaching for logging as a matter of course; if a genuine need comes up later, decide then rather than enforcing a blanket rule now.
 
 ## Code Requirements
