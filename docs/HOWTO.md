@@ -89,5 +89,6 @@ These don't exist in the package yet. Each one gets its own full section, comple
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.
 - **Profunctor** — a box with an in-door and an out-door, each independently adaptable.
 - **Strong** — a `Profunctor` that can politely ignore half a tuple while it works on the other half.
+- **Star** — a `Profunctor` built by wrapping up a function that returns a *boxed* value (`a -> f b`) instead of a plain one, so `dimap` can reach in through the box too.
 - **Forget[A]** — a box that was never holding anything to begin with; `A` exists only on the label, never at runtime.
 - **Const[A, B]** — `Forget`'s cousin: it *does* hold a real value of type `A`, and simply refuses to look at `B` at all.

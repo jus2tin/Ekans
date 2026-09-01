@@ -75,6 +75,7 @@ mypy src --strict
         - Category
         - Profunctor
             - Strong
+            - Star
 
 ### First concrete types
 
