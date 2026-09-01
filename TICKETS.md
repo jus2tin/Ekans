@@ -43,7 +43,7 @@ Spec: [`docs/specs/pointed.md`](docs/specs/pointed.md)
 
 ### T-005: Pointed ABC
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/pointed.py` with the `Pointed[A_co]` abstract class per the spec: covariant type parameter, abstract classmethod `point`. No free function (rejected in the spec — see Design). Includes the real `docs/HOWTO.md` `Pointed` section (concept, why no free function, a runnable example), replacing the current stub.
 
