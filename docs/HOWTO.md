@@ -97,6 +97,13 @@ a == b
 
 That happens because `Identity.__eq__` is typed against `Identity[A]` — the same `A` as `self` — instead of the usual `object`. It costs a `# type: ignore[override]` on the definition (mypy considers narrowing `__eq__`'s parameter an LSP violation, and normally it's right to complain — here it's exactly the point). Comparing to something that isn't an `Identity` at all, like `Identity(value=1) == 5`, still type-checks fine and is just `False` at runtime, same as ordinary Python — only *same-class-different-type-parameter* comparisons get turned into an error.
 
+`Identity` is also the first type shipped in the package to actually implement `Pointed` (see that section below): `Identity.point(5)` builds `Identity(value=5)` directly, no instance required to call it on:
+
+```python
+Identity.point(5)  # Identity(value=5)
+Identity.point(5).fmap(str)  # Identity(value='5') -- point and fmap chain fine
+```
+
 ## Functor: doing something to what's inside
 
 `Functor` is the first real capability in the hierarchy — everything before it (`Functional`, `Identity`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.
@@ -204,7 +211,7 @@ class Box(Pointed[A], Generic[A]):
 Box.point(42)  # Box(value=42)
 ```
 
-`Box` here is an illustrative stand-in, the same way it was in the `Functor` section above; `Identity` is the first type shipped in the package itself to actually implement `Pointed` this way (see its section above once that lands).
+`Box` here is an illustrative stand-in, the same way it was in the `Functor` section above; `Identity` (see its section above) is the real, shipped example, and its `point` is exactly this shape.
 
 `point` is a **classmethod**, not an instance method like `fmap`. That's not a style choice — there's no instance to call it on yet, that's the whole point (no pun intended, mostly). Compare: `fmap` transforms a box you already have; `point` conjures a box out of nothing but a bare value and a type.
 
