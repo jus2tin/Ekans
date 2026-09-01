@@ -130,3 +130,11 @@ mypy src --strict
 - Use structural pattern matching (match/case) for control flow instead of if/elif chains
 - No unhandled exceptions — document or raise intentionally; prefer value-based error handling per the Error handling section above
 - Docstrings on all public functions (Google style)
+
+## Documentation
+
+- Every concept, type class, and function gets covered in the how-to guide at `docs/HOWTO.md` — docstrings are for API reference, this is for actually explaining things.
+- Format: it starts as a single Markdown "article" — one `##` section per concept, self-contained enough (explains that one concept without leaning on later sections) that it can later be split into separate pages (e.g. `docs/wiki/<concept>.md`, linked from an index) Wikipedia-style, without a rewrite. One file until there's enough content to justify splitting it.
+- Tone: fun and light, not a dry reference — concrete, playful examples over exhaustive prose. Explain the underlying theory (category theory / Haskell terms) but keep it approachable; assume a curious reader, not an FP expert.
+- Update it in the same commit that introduces the concept/type/function it documents — keeps it honest alongside the one-commit-per-type workflow.
+- Concepts from the Type hierarchy that aren't implemented yet still get a short stub entry (what it'll do, one or two sentences) rather than being omitted, so the article's shape matches the full planned hierarchy from day one.
