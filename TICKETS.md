@@ -66,7 +66,7 @@ Add an optional `equal` parameter to `tests/functor_laws.py`'s `assert_functor_l
 
 ### T-008: Add the `const` combinator
 
-**Status:** Open
+**Status:** Closed
 
 `def const(value: A) -> Callable[[C], A]` in `src/ekans/reader.py` per the spec's Design section — `C` inferred from call-site context, not a caller-supplied argument. Small standalone example-based test. T-010 is its only consumer.
 
