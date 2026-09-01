@@ -18,7 +18,7 @@ Add `src/ekans/functor.py` with the `Functor[A_co]` abstract class per the spec:
 
 ### T-002: Functor law-checking test helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-001
 
 A reusable Hypothesis-based helper (in `tests/`, not part of the public package — no `docs/HOWTO.md` entry, this is test infrastructure) asserting the identity and composition laws from the spec, parameterized over a constructor and a values strategy — `f`/`g` are generated internally per-example via `hypothesis.strategies.functions()`, not passed in by the caller. T-003 and T-004 are its first two callers.
