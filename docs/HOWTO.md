@@ -170,6 +170,8 @@ a == b
 
 Same mechanism as `Identity`'s type-safe equality above, just extended to two type parameters instead of one — mypy's invariance check works purely at the type level, so it catches the mismatch on `B` even though `B` never shows up in a runtime attribute to compare.
 
+**Note for later:** `Const` doesn't get a `Pointed` instance yet, and won't until `Semigroup`/`Monoid` exist. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. No `Monoid`, no honest `Const.point`.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
