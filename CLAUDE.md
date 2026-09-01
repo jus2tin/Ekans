@@ -62,7 +62,10 @@ mypy src --strict
 - Functional
     - Endofunctor based structures
         - Functor
+        - Pointed
+        - Apply
         - Applicative
+        - Bind
         - Monad
     - Algebraic structures
         - Semigroup
