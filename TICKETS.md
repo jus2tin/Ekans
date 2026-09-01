@@ -60,7 +60,7 @@ Spec: [`docs/specs/reader.md`](docs/specs/reader.md)
 
 ### T-007: Extend assert_functor_laws with an optional equality comparator
 
-**Status:** Open
+**Status:** Closed
 
 Add an optional `equal` parameter to `tests/functor_laws.py`'s `assert_functor_laws`, defaulting to `==` when omitted. Existing `Identity`/`Const` callers keep passing (verify by running their existing test suites unmodified). T-009 is the first caller to actually use a custom `equal`.
 
