@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ekans"
+version = "0.1.0"
+description = "A pure functional experiment in Python."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "AGPL-3.0-only"
+authors = [
+    { name = "Justin Termaat" },
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ekans"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

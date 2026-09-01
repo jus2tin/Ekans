@@ -4,12 +4,12 @@ A pure functional experiment in Python.
 
 ## Project status
 
-Early stage. The repo currently contains only project scaffolding (README, LICENSE, `.gitignore`) — no source layout, package manager, or tests have been established yet.
+Early stage. Package layout: `src/ekans/`, tests in `tests/` (not yet created), built with hatchling via `pyproject.toml`.
 
 ## Conventions
 
 - Style: functional — prefer pure functions, immutable data, and composition over classes/mutable state.
-- No source, dependency, or test tooling is set up yet. When adding it, prefer standard, low-ceremony choices (e.g. a single `pyproject.toml`, stdlib `unittest`/`pytest`) unless told otherwise.
+- Tests: pytest (declared under `[project.optional-dependencies].dev`).
 - Keep the venv (`venv/`) out of version control; it's already in `.gitignore` and `.claudeignore`.
 
 ## Working with this repo
