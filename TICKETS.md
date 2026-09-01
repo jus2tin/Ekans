@@ -12,7 +12,7 @@ Spec: [`docs/specs/functor.md`](docs/specs/functor.md)
 
 ### T-001: Functor ABC
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/functor.py` with the `Functor[A_co]` abstract class per the spec: covariant type parameter, abstract `fmap` method, plus the free `fmap` function with its fallback `@overload` (`Functor[A] -> Functor[B]`) in place from the start, so generic code against the abstract handle type-checks immediately — T-003/T-004 add their own concrete overloads *above* the fallback as each type lands. Includes the `docs/HOWTO.md` `Functor` section (concept + both laws in plain language + a runnable example), replacing the current stub.
 
