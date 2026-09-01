@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-cov",
     "hypothesis",
     "mypy",
     "black",
@@ -31,3 +32,10 @@ packages = ["src/ekans"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=ekans --cov-report=term-missing --cov-fail-under=100"
+
+[tool.coverage.run]
+source = ["ekans"]
+
+[tool.isort]
+profile = "black"

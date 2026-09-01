@@ -27,8 +27,9 @@ mypy src --strict
 - The root of the tree of abstract classes will be an abstract class called Functional.
 - This class does nothing but override __setattr__ and __delattr__ to immediately raise an AttributeError.
 - From this root capabilities are added on by classes which inherit from it in as small steps as possible. For instance instead of directly creating an Applicative class that requires both `pure` and `ap` there will be a Pointed class which requires `point` and an Apply class which requires `ap`. For convenience there will be an Applicative class that inherits from both.
+- The same pattern applies to Monad: rather than requiring `bind` directly on Applicative, there will be a Bind class which requires `bind`, and Monad will inherit from both Applicative and Bind for convenience.
 - We will follow the standard family tree of type classes from Haskell as closely as possible.
-- This package will inherit from toolz and use it's primitives as much as possible.
+- This package will inherit from toolz and use its primitives as much as possible.
 - The primitives this package exports will be extremely opinionated and they will not feel very pythonic. We will try to get as close to pure typed functional code as we can within Python.
 - However at the same time we will also make sure we stay as close to Python's design philosophy as these design choices allow.
 - We will make it as easy as possible for the user of this package to use structural pattern matching on it's exported types.
@@ -36,6 +37,13 @@ mypy src --strict
 ### Immutability
 
 - Concrete types are `@dataclass(frozen=True)`. A frozen dataclass's generated `__init__` assigns fields via `object.__setattr__` internally, so it composes cleanly with `Functional`'s `__setattr__`/`__delattr__` override — construction works, and any mutation attempted afterward raises.
+
+### Equality
+
+- Every generic concrete type overrides `__eq__` (and `__hash__`, since defining `__eq__` clears the dataclass-generated `__hash__`) typed against its own class-scoped TypeVar(s) instead of `object` — e.g. `def __eq__(self, other: "Identity[A]") -> bool:` on `Identity[A]`, with `@dataclass(frozen=True, eq=False)` so the dataclass doesn't also try to generate one. This makes comparisons between mismatched type parameters (`Identity[int](...) == Identity[str](...)`) a hard mypy `[operator]` error instead of a silent runtime `False`, mirroring how Haskell's `Eq` instances are parametrically typed.
+- Requires a `# type: ignore[override]` on the definition — mypy considers narrowing `__eq__`'s parameter away from `object` an LSP violation. That's the whole point here, so the ignore is intentional, not a workaround.
+- Comparisons against genuinely unrelated types (e.g. `Identity(value=1) == 5`) stay permitted and just evaluate to `False`, same as ordinary Python — only same-class-different-type-parameter comparisons get rejected.
+- Worth knowing: mypy's `--strict-equality` (bundled into `--strict`) already flags mismatched dataclass-generated equality on its own, via internal dataclass-plugin typing — it does *not* do this for a hand-written class typed `other: object`. We override explicitly anyway rather than lean on that: it's self-documenting in the code itself, and it doesn't depend on an internal, version-specific mypy behavior that wouldn't apply to a future non-dataclass Functional type.
 
 ### Type classes: ABC, not Protocol
 
@@ -57,13 +65,20 @@ mypy src --strict
 
 - Provide both free functions and methods: a method like `obj.map(f)` should delegate to an underlying free function. Free functions are data-last where that reads naturally, but — per the currying decision above — are not required to support partial application via currying.
 
+### Why Star matters
+
+- `Star[F, A, B]` (wraps `A -> F[B]`) is a priority `Profunctor` instance, not just a rounding-out-the-set addition. When `F` is a `Monad`, composing two `Star`s is Kleisli composition — chaining effectful functions end to end. Giving `Star` its own `Category` instance built on that composition reproduces Haskell's `Kleisli` arrow exactly — the `Arrow` instance used for monadic effects. (Not every `Arrow` is Kleisli-shaped — plain functions form an `Arrow` too, with no box involved at all — but the Kleisli case, the one people actually reach for, is precisely `Star` plus `Category`.) Comes essentially free once `Category`, `Strong`, and `Monad` already exist, rather than needing its own bespoke machinery.
+
 ## Type hierarchy
 
 - Functional
     - Endofunctor based structures
+        - Pointed — provides `point`; needs only Functional
         - Functor
-        - Applicative
-        - Monad
+            - Apply — provides `ap`; needs Functor
+                - Applicative — Pointed + Apply
+                - Bind — provides `bind`; needs Apply
+                    - Monad — Applicative + Bind
     - Algebraic structures
         - Semigroup
         - Monoid
@@ -74,11 +89,14 @@ mypy src --strict
 
 ### First concrete types
 
-- `Identity[A]` (the identity functor) and `Forget[A]` (the forgetful/constant functor) are the first two concrete types to implement, to exercise the abstract hierarchy end-to-end before building anything more elaborate like `Maybe` or `Either`.
+- `Identity[A]` (the identity functor) — the first concrete type to implement, to exercise the abstract hierarchy end-to-end before building anything more elaborate like `Maybe` or `Either`.
+- `Proxy[A]` (`data Proxy a = Proxy`) — a nullary/phantom type: it carries no runtime field, `A` exists only at the type level, and every value of `Proxy[A]` is interchangeable. Named after Haskell's `Data.Proxy`, deliberately *not* called `Forget` — the `profunctors` package's `Forget r a b = Forget (a -> r)` is a different, non-nullary profunctor (it holds a real function producing `r`; only `b` is phantom). If we ever want that one too, it gets its own name so the two don't collide.
+- `Const[A, B]` (`data Const a b = Const a`) — related but distinct from `Proxy`: it holds a real runtime value of type `A` and ignores `B` entirely. This is the type that actually exercises `Functor` over its second parameter (mapping over `B` is a no-op since nothing of that type exists to touch) — worth adding alongside `Proxy`.
+- `Star[F, A, B]` (`data Star f a b = Star (a -> f b)`) — wraps a function that returns a value inside a functor `F` instead of a plain one. Gets `Profunctor`/`Strong` once `F: Functor`, and — see "Why Star matters" above — a `Category` instance once `F: Monad`, which is Kleisli composition. A concrete type, not an abstract class, so it lives here rather than in the Type hierarchy above.
 
 ## File organization
 
-- One file per class: e.g. `functional.py`, `functor.py`, `monad.py`, `identity.py`, `forget.py`. Mirrors the Type hierarchy above rather than grouping multiple classes into category modules.
+- One file per class: e.g. `functional.py`, `functor.py`, `monad.py`, `identity.py`, `proxy.py`. Mirrors the Type hierarchy above rather than grouping multiple classes into category modules.
 
 ## Conventions
 
@@ -114,7 +132,7 @@ mypy src --strict
 
 - This is a personal experiment, not a team project, but part of the point is practicing a heavier, more deliberate workflow with Claude — so don't default to "small project, skip the ceremony."
 - Branching: feature branches + PRs, even though it's solo — practicing that flow is part of the goal.
-- Commits: one commit per type/class. Each type class or concrete type (e.g. `Identity`, `Forget`) lands as its own reviewed commit rather than being batched with others.
+- Commits: one commit per type/class. Each type class or concrete type (e.g. `Identity`, `Proxy`) lands as its own reviewed commit rather than being batched with others.
 - No print()/logging requirement — dropped. A pure functional library shouldn't be reaching for logging as a matter of course; if a genuine need comes up later, decide then rather than enforcing a blanket rule now.
 
 ## Code Requirements
@@ -124,3 +142,11 @@ mypy src --strict
 - Use structural pattern matching (match/case) for control flow instead of if/elif chains
 - No unhandled exceptions — document or raise intentionally; prefer value-based error handling per the Error handling section above
 - Docstrings on all public functions (Google style)
+
+## Documentation
+
+- Every concept, type class, and function gets covered in the how-to guide at `docs/HOWTO.md` — docstrings are for API reference, this is for actually explaining things.
+- Format: it starts as a single Markdown "article" — one `##` section per concept, self-contained enough (explains that one concept without leaning on later sections) that it can later be split into separate pages (e.g. `docs/wiki/<concept>.md`, linked from an index) Wikipedia-style, without a rewrite. One file until there's enough content to justify splitting it.
+- Tone: fun and light, not a dry reference — concrete, playful examples over exhaustive prose. Explain the underlying theory (category theory / Haskell terms) but keep it approachable; assume a curious reader, not an FP expert.
+- Update it in the same commit that introduces the concept/type/function it documents — keeps it honest alongside the one-commit-per-type workflow.
+- Concepts from the Type hierarchy that aren't implemented yet still get a short stub entry (what it'll do, one or two sentences) rather than being omitted, so the article's shape matches the full planned hierarchy from day one.
