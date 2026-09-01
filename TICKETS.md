@@ -43,13 +43,13 @@ Spec: [`docs/specs/pointed.md`](docs/specs/pointed.md)
 
 ### T-005: Pointed ABC
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/pointed.py` with the `Pointed[A_co]` abstract class per the spec: covariant type parameter, abstract classmethod `point`. No free function (rejected in the spec — see Design). Includes the real `docs/HOWTO.md` `Pointed` section (concept, why no free function, a runnable example), replacing the current stub.
 
 ### T-006: Identity implements Pointed
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-005
 
 Retrofit `Identity[A]` to also inherit `Pointed[A]` (alongside its existing `Functor[A]`) and implement `point`. Tests: construction via `point`, immutability still holds, `point(...).fmap(...)` chains correctly, and a Hypothesis-generated property test (`Identity.point(x).value == x`) — not a universal law, just varied rather than hardcoded, per the spec's Testing strategy. Update `docs/HOWTO.md`'s `Identity` section with a short addition showing `Identity.point(5)`.

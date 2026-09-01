@@ -4,13 +4,14 @@ from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 
 from ekans.functor import Functor
+from ekans.pointed import Pointed
 
 A = TypeVar("A")
 B = TypeVar("B")
 
 
 @dataclass(frozen=True, eq=False)
-class Identity(Functor[A], Generic[A]):
+class Identity(Functor[A], Pointed[A], Generic[A]):
     """Wraps a single value without adding any structure.
 
     Attributes:
@@ -29,6 +30,23 @@ class Identity(Functor[A], Generic[A]):
             A new Identity wrapping the result of `f(self.value)`.
         """
         return Identity(value=f(self.value))
+
+    # mypy flags both the parameter and return type here as
+    # incompatible with Pointed.point's supertype signature
+    # ([override]): point's types are method-scoped TypeVars, not a
+    # self-bound one, so mypy can't establish the substitutability it
+    # can for instance methods like fmap -- narrowing here is the point.
+    @classmethod
+    def point(cls, value: A) -> "Identity[A]":  # type: ignore[override]
+        """Construct an Identity wrapping `value`.
+
+        Args:
+            value: The value to wrap.
+
+        Returns:
+            A new Identity wrapping `value`.
+        """
+        return Identity(value=value)
 
     # mypy treats narrowing __eq__'s parameter away from `object` as an
     # LSP violation ([override]); that narrowing is exactly the point here.

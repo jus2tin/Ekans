@@ -1,5 +1,6 @@
 import pytest
 from functor_laws import assert_functor_laws
+from hypothesis import given
 from hypothesis import strategies as st
 
 from ekans.functor import fmap
@@ -51,3 +52,16 @@ def test_free_fmap_delegates_to_the_method() -> None:
 
 def test_satisfies_the_functor_laws() -> None:
     assert_functor_laws(Identity, st.integers())
+
+
+def test_point_constructs_an_identity_wrapping_the_value() -> None:
+    assert Identity.point(1) == Identity(value=1)
+
+
+def test_point_then_fmap_chains_correctly() -> None:
+    assert Identity.point(1).fmap(str) == Identity(value="1")
+
+
+@given(st.integers())
+def test_point_wraps_the_value_unchanged(value: int) -> None:
+    assert Identity.point(value).value == value
