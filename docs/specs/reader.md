@@ -1,6 +1,6 @@
 # Spec: Reader
 
-**Status:** Draft — awaiting review
+**Status:** Approved
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Reader"
 
 ## Summary
