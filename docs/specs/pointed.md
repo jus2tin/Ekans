@@ -1,6 +1,6 @@
 # Spec: Pointed
 
-**Status:** Draft — awaiting review
+**Status:** Approved
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Pointed"
 
 ## Summary
