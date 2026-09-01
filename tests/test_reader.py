@@ -71,3 +71,8 @@ def test_point_constructs_a_reader_ignoring_its_environment() -> None:
 def test_point_then_fmap_chains_correctly() -> None:
     reader: Reader[str, str] = Reader.point(5).fmap(str)
     assert reader.run("anything") == "5"
+
+
+def test_call_delegates_to_run() -> None:
+    reader: Reader[int, int] = Reader(run=lambda r: r + 1)
+    assert reader(1) == 2
