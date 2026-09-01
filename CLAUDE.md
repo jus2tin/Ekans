@@ -153,6 +153,7 @@ For any new type class or concrete type (not just Functor — this is the standi
 - Use structural pattern matching (match/case) for control flow instead of if/elif chains
 - No unhandled exceptions — document or raise intentionally; prefer value-based error handling per the Error handling section above
 - Docstrings on all public functions (Google style)
+- No `# type: ignore` comments unless they name the exact error code (e.g. `# type: ignore[override]`) and carry a one-sentence comment explaining why Python's type system forced it. A bare `# type: ignore` is never acceptable — it silences everything, not the one specific thing that's actually intentional.
 
 ## Documentation
 

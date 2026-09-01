@@ -14,6 +14,9 @@ def test_setattr_raises_attribute_error() -> None:
 def test_delattr_raises_attribute_error() -> None:
     obj = Functional()
     with pytest.raises(AttributeError):
+        # Functional declares no attributes at all, so mypy can't know
+        # "value" exists ([attr-defined]); deleting it is exactly what
+        # should raise at runtime.
         del obj.value  # type: ignore[attr-defined]
 
 
@@ -33,6 +36,8 @@ def test_frozen_dataclass_subclass_mutation_raises() -> None:
 
     box = Box(value=1)
     with pytest.raises(AttributeError):
+        # mypy statically knows this frozen field is read-only ([misc]);
+        # we're deliberately testing the runtime FrozenInstanceError it raises.
         box.value = 2  # type: ignore[misc]
 
 

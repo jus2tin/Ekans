@@ -30,6 +30,8 @@ class Identity(Functor[A], Generic[A]):
         """
         return Identity(value=f(self.value))
 
+    # mypy treats narrowing __eq__'s parameter away from `object` as an
+    # LSP violation ([override]); that narrowing is exactly the point here.
     def __eq__(self, other: "Identity[A]") -> bool:  # type: ignore[override]
         """Compare against another Identity wrapping the same type.
 
