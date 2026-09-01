@@ -38,6 +38,13 @@ mypy src --strict
 
 - Concrete types are `@dataclass(frozen=True)`. A frozen dataclass's generated `__init__` assigns fields via `object.__setattr__` internally, so it composes cleanly with `Functional`'s `__setattr__`/`__delattr__` override — construction works, and any mutation attempted afterward raises.
 
+### Equality
+
+- Every generic concrete type overrides `__eq__` (and `__hash__`, since defining `__eq__` clears the dataclass-generated `__hash__`) typed against its own class-scoped TypeVar(s) instead of `object` — e.g. `def __eq__(self, other: "Identity[A]") -> bool:` on `Identity[A]`, with `@dataclass(frozen=True, eq=False)` so the dataclass doesn't also try to generate one. This makes comparisons between mismatched type parameters (`Identity[int](...) == Identity[str](...)`) a hard mypy `[operator]` error instead of a silent runtime `False`, mirroring how Haskell's `Eq` instances are parametrically typed.
+- Requires a `# type: ignore[override]` on the definition — mypy considers narrowing `__eq__`'s parameter away from `object` an LSP violation. That's the whole point here, so the ignore is intentional, not a workaround.
+- Comparisons against genuinely unrelated types (e.g. `Identity(value=1) == 5`) stay permitted and just evaluate to `False`, same as ordinary Python — only same-class-different-type-parameter comparisons get rejected.
+- Worth knowing: mypy's `--strict-equality` (bundled into `--strict`) already flags mismatched dataclass-generated equality on its own, via internal dataclass-plugin typing — it does *not* do this for a hand-written class typed `other: object`. We override explicitly anyway rather than lean on that: it's self-documenting in the code itself, and it doesn't depend on an internal, version-specific mypy behavior that wouldn't apply to a future non-dataclass Functional type.
+
 ### Type classes: ABC, not Protocol
 
 - `Functional` and every type class in the hierarchy (`Functor`, `Monad`, `Semigroup`, ...) are `abc.ABC` with `@abstractmethod` — nominal typing. A concrete type must explicitly inherit from the type classes it implements, rather than structurally satisfying them.

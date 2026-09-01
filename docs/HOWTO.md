@@ -74,6 +74,18 @@ In Haskell this is `newtype Identity a = Identity a` — a type that exists almo
 
 Right now, before `Functor` exists, `Identity` is just that: a small, honest, immutable box. Think of it as a courier who picks up your package, carries it exactly as-is, and hands it back unopened. Not very exciting on its own — but every functor law anyone will ever write a Hypothesis test for gets checked against this box first, because if a law doesn't hold for the box that does nothing, it isn't going to hold for anything fancier either.
 
+**A fun wrinkle: equality has a type, too.** In Haskell, `Identity 1 == Identity "a"` isn't a bug you catch at runtime — the compiler refuses to build it, because `Eq (Identity a)` only exists for a given `a`, and `Int` isn't `String`. Ekans gets the same guarantee, just enforced by mypy instead of `ghc`:
+
+```python
+a: Identity[int] = Identity(value=1)
+b: Identity[str] = Identity(value="not an int")
+
+a == b
+# error: Unsupported operand types for == ("Identity[int]" and "Identity[str]")  [operator]
+```
+
+That happens because `Identity.__eq__` is typed against `Identity[A]` — the same `A` as `self` — instead of the usual `object`. It costs a `# type: ignore[override]` on the definition (mypy considers narrowing `__eq__`'s parameter an LSP violation, and normally it's right to complain — here it's exactly the point). Comparing to something that isn't an `Identity` at all, like `Identity(value=1) == 5`, still type-checks fine and is just `False` at runtime, same as ordinary Python — only *same-class-different-type-parameter* comparisons get turned into an error.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
