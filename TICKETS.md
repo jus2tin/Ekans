@@ -79,7 +79,7 @@ Add an optional `equal` parameter to `tests/functor_laws.py`'s `assert_functor_l
 
 ### T-010: Reader implements Pointed
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-008, T-009
 
 Retrofit `Reader[R, A]` to also inherit `Pointed[A]` and implement `point` using `const`. Tests: construction via `point`, `point(...).fmap(...)` chains correctly (compared via `.run(env)`, not `==`). Update `docs/HOWTO.md`'s `Reader` section with `point` and `const`.

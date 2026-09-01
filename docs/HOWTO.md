@@ -246,6 +246,18 @@ Under the hood, `fmap(f, reader)` is just function composition: it builds a *new
 
 **The equality wrinkle, explained as real theory, not an apology.** Every other box in this guide gets `==`: `Identity(value=1) == Identity(value=1)` is `True`. `Reader` doesn't, on purpose. Two Python functions that compute the same thing are never `==` to each other — Python compares functions by identity, not by behavior, and there's no way around that from inside the language. Giving `Reader` a `__eq__` that compares its wrapped function directly would be worse than useless: `reader.fmap(f)` builds a brand-new closure every time, so it would never equal anything, ever, without ever *looking* broken — no error, just an equality operator that silently always says no. The honest move is to not pretend: `Reader` just doesn't support `==` in any meaningful sense. If you need to know whether two `Reader`s behave the same, the real question is "do they produce the same result for the same environment?" — which means calling `.run(env)` on both and comparing outputs, for whichever environments you actually care about. That's *extensional* equality (functions are equal if they agree everywhere), and it's the same idea Ekans' own test suite leans on to verify `Reader`'s Functor laws, since `==` isn't available to check them the usual way.
 
+`Reader` also implements `Pointed`: `Reader.point(5)` builds a `Reader` that ignores whatever environment it's given and always produces `5` — a computation that doesn't actually need the environment at all:
+
+```python
+always_five: Reader[str, int] = Reader.point(5)
+always_five.run("this string is ignored entirely")  # 5
+always_five.run("so is this one")  # 5
+
+Reader.point(5).fmap(str).run("still ignored")  # '5'
+```
+
+Under the hood, `point` is built from a small standalone combinator, `const`: Haskell's `const :: a -> b -> a`, a function that ignores its second argument and always returns its first. `const(5)` is a function equivalent to `lambda _: 5`; `Reader.point(value) = Reader(run=const(value))`. It's not exported as part of `Reader`'s own concept — it's a small, general-purpose piece of plumbing that happens to live in `ekans.reader` because that's its only user so far.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.

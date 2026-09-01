@@ -60,3 +60,14 @@ def _compare_readers(a: Functor[int], b: Functor[int]) -> bool:
 
 def test_satisfies_the_functor_laws() -> None:
     assert_functor_laws(_make_reader, st.integers(), equal=_compare_readers)
+
+
+def test_point_constructs_a_reader_ignoring_its_environment() -> None:
+    reader: Reader[str, int] = Reader.point(5)
+    assert reader.run("anything") == 5
+    assert reader.run("something else") == 5
+
+
+def test_point_then_fmap_chains_correctly() -> None:
+    reader: Reader[str, str] = Reader.point(5).fmap(str)
+    assert reader.run("anything") == "5"

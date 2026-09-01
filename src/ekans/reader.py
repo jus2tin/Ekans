@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 
 from ekans.functor import Functor
+from ekans.pointed import Pointed
 
 A = TypeVar("A")
 C = TypeVar("C")
@@ -33,7 +34,7 @@ def const(value: A) -> Callable[[C], A]:
 
 
 @dataclass(frozen=True, eq=False)
-class Reader(Functor[A], Generic[R, A]):
+class Reader(Functor[A], Pointed[A], Generic[R, A]):
     """The function arrow `(-> r)`: wraps a function from an environment to a result.
 
     Deliberately has no `__eq__`/`__hash__` override, unlike Identity/
@@ -57,3 +58,20 @@ class Reader(Functor[A], Generic[R, A]):
             A new Reader whose wrapped function is `f` composed after `run`.
         """
         return Reader(run=lambda r: f(self.run(r)))
+
+    # mypy flags both the parameter and return type here as
+    # incompatible with Pointed.point's supertype signature
+    # ([override]): point's types are method-scoped TypeVars, not a
+    # self-bound one, so mypy can't establish the substitutability it
+    # can for instance methods like fmap -- narrowing here is the point.
+    @classmethod
+    def point(cls, value: A) -> "Reader[R, A]":  # type: ignore[override]
+        """Construct a Reader that ignores its environment and returns `value`.
+
+        Args:
+            value: The value the constructed Reader should always produce.
+
+        Returns:
+            A new Reader whose `run` ignores its argument and returns `value`.
+        """
+        return Reader(run=const(value))
