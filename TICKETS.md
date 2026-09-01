@@ -96,9 +96,9 @@ Spec: [`docs/specs/apply.md`](docs/specs/apply.md)
 
 ### T-012: Apply ABC
 
-**Status:** Open
+**Status:** Closed
 
-Add `src/ekans/apply.py` with the `Apply[A_co]` abstract class per the spec: `Functor[A_co]` subclass, abstract `ap` method, plus the free `ap` function (function-first argument order) with its fallback `@overload` in place from the start, mirroring `fmap`'s pattern. Includes the real `docs/HOWTO.md` `Apply` section, replacing the current stub.
+Add `src/ekans/apply.py` with the `Apply[A_co]` abstract class per the spec: `Functor[A_co]` subclass, abstract `ap` method, plus the free `ap` function (function-first argument order) as a single plain-typed function for now, same as `fmap`'s T-001 shape — no `Identity` overload yet, since `Identity` doesn't implement `Apply` until T-014 (an earlier draft got this wrong; corrected during implementation, see the spec's Design section). Includes the real `docs/HOWTO.md` `Apply` section, replacing the current stub.
 
 ### T-013: Apply associativity law-checking helper
 

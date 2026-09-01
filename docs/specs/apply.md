@@ -39,15 +39,13 @@ Verified against `mypy --strict`: the override needs `# type: ignore[override]` 
 ### Free function: `ap(f, x)`, function first
 
 ```python
-@overload
-def ap(f: "Identity[Callable[[A], B]]", x: "Identity[A]") -> "Identity[B]": ...
-@overload
-def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]: ...
-def ap(f, x):
+def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]:
     return x.ap(f)
 ```
 
-Verified precise: `ap(wrapped_fn, wrapped_value)` reveals the concrete subtype (e.g. `Identity[str]`), not the loose fallback — same overload-per-type pattern as `fmap`, no `point`-style precision gotcha, since both arguments here are already-constructed values (unlike `point`'s bare class reference).
+Ships as a single plain-typed function for T-012, not an `@overload` set — same reasoning as `fmap`'s T-001 shape: mypy requires 2+ variants for `@overload` to apply, and there's only one signature until a concrete type actually implements `Apply`. **Correction found during T-012's implementation, not caught during spec review:** an earlier draft of this section (and the signature posted for approval) included an `Identity` overload from the start. That's wrong — `Identity` doesn't implement `Apply` until T-014, so referencing `Identity[Callable[[A], B]]` as an `Apply`-compatible overload before then is asserting something false, and mypy correctly rejected the overload/implementation pair as inconsistent (`Overloaded function implementation does not accept all possible parameters of signature 1`). Fixed to match `fmap`'s actual precedent: the overload set grows once `Identity` (T-014) really does implement `Apply`, same as `fmap`'s first `Identity` overload only arrived in T-003, not T-001.
+
+Once `Identity` implements `Apply` (T-014), `ap(wrapped_fn, wrapped_value)` is verified to reveal the concrete subtype (e.g. `Identity[str]`), not the loose fallback — same overload-per-type pattern as `fmap`, no `point`-style precision gotcha, since both arguments here are already-constructed values (unlike `point`'s bare class reference).
 
 ### The associativity law, and its honest limitation
 
