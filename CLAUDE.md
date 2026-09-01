@@ -58,6 +58,10 @@ mypy src --strict
 
 - Provide both free functions and methods: a method like `obj.map(f)` should delegate to an underlying free function. Free functions are data-last where that reads naturally, but — per the currying decision above — are not required to support partial application via currying.
 
+### Why Star matters
+
+- `Star[F, A, B]` (wraps `A -> F[B]`) is a priority `Profunctor` instance, not just a rounding-out-the-set addition. When `F` is a `Monad`, composing two `Star`s is Kleisli composition — chaining effectful functions end to end. That makes `Star` a more powerful stand-in for Haskell's `Arrow`, built for free once `Category`, `Strong`, and `Monad` exist rather than needing its own machinery.
+
 ## Type hierarchy
 
 - Functional
