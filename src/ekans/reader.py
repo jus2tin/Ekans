@@ -75,3 +75,14 @@ class Reader(Functor[A], Pointed[A], Generic[R, A]):
             A new Reader whose `run` ignores its argument and returns `value`.
         """
         return Reader(run=const(value))
+
+    def __call__(self, r: R) -> A:
+        """Delegate to `run`, so a Reader can be used like a plain function.
+
+        Args:
+            r: The environment to run against.
+
+        Returns:
+            The result of `self.run(r)`.
+        """
+        return self.run(r)

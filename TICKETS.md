@@ -86,7 +86,7 @@ Retrofit `Reader[R, A]` to also inherit `Pointed[A]` and implement `point` using
 
 ### T-011: Reader.__call__
 
-**Status:** Open
+**Status:** Closed
 
 Add `__call__` to `Reader[R, A]` per the spec's amended Design section — delegates to `run`, no other behavior. Update `docs/HOWTO.md`'s `Reader` section with a short mention.
 

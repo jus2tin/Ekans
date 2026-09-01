@@ -258,6 +258,14 @@ Reader.point(5).fmap(str).run("still ignored")  # '5'
 
 Under the hood, `point` is built from a small standalone combinator, `const`: Haskell's `const :: a -> b -> a`, a function that ignores its second argument and always returns its first. `const(5)` is a function equivalent to `lambda _: 5`; `Reader.point(value) = Reader(run=const(value))`. It's not exported as part of `Reader`'s own concept — it's a small, general-purpose piece of plumbing that happens to live in `ekans.reader` because that's its only user so far.
 
+One last bit of ergonomics: `Reader` is directly callable, so `reader(env)` works exactly like `reader.run(env)`:
+
+```python
+get_length("hello")  # 5 -- same as get_length.run("hello")
+```
+
+That's the whole bridge back to plain Python: anywhere a `Callable[[R], A]` is expected — `map()`, composing with an ordinary function, whatever — a `Reader` can just be handed over directly, no `.run` required.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
