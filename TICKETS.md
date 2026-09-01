@@ -53,3 +53,33 @@ Add `src/ekans/pointed.py` with the `Pointed[A_co]` abstract class per the spec:
 **Depends on:** T-005
 
 Retrofit `Identity[A]` to also inherit `Pointed[A]` (alongside its existing `Functor[A]`) and implement `point`. Tests: construction via `point`, immutability still holds, `point(...).fmap(...)` chains correctly, and a Hypothesis-generated property test (`Identity.point(x).value == x`) — not a universal law, just varied rather than hardcoded, per the spec's Testing strategy. Update `docs/HOWTO.md`'s `Identity` section with a short addition showing `Identity.point(5)`.
+
+## Reader
+
+Spec: [`docs/specs/reader.md`](docs/specs/reader.md)
+
+### T-007: Extend assert_functor_laws with an optional equality comparator
+
+**Status:** Open
+
+Add an optional `equal` parameter to `tests/functor_laws.py`'s `assert_functor_laws`, defaulting to `==` when omitted. Existing `Identity`/`Const` callers keep passing (verify by running their existing test suites unmodified). T-009 is the first caller to actually use a custom `equal`.
+
+### T-008: Add the `const` combinator
+
+**Status:** Open
+
+`def const(value: A) -> Callable[[C], A]` in `src/ekans/reader.py` per the spec's Design section — `C` inferred from call-site context, not a caller-supplied argument. Small standalone example-based test. T-010 is its only consumer.
+
+### T-009: Reader[R, A] concrete type + Functor instance
+
+**Status:** Open
+**Depends on:** T-007
+
+`src/ekans/reader.py`: `Reader[R, A]` (`Functional`-based frozen dataclass, `run: Callable[[R], A]`), `Functor[A]` instance via composition. Deliberately no `__eq__`/`__hash__` override — see the spec's Equality section for why. Law tests via the T-007-extended helper with a comparator sampling environment values. Add its overload to the free `fmap` function. Real `docs/HOWTO.md` `Reader` section, replacing the current stub.
+
+### T-010: Reader implements Pointed
+
+**Status:** Open
+**Depends on:** T-008, T-009
+
+Retrofit `Reader[R, A]` to also inherit `Pointed[A]` and implement `point` using `const`. Tests: construction via `point`, `point(...).fmap(...)` chains correctly (compared via `.run(env)`, not `==`). Update `docs/HOWTO.md`'s `Reader` section with `point` and `const`.
