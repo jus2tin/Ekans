@@ -83,3 +83,27 @@ Add an optional `equal` parameter to `tests/functor_laws.py`'s `assert_functor_l
 **Depends on:** T-008, T-009
 
 Retrofit `Reader[R, A]` to also inherit `Pointed[A]` and implement `point` using `const`. Tests: construction via `point`, `point(...).fmap(...)` chains correctly (compared via `.run(env)`, not `==`). Update `docs/HOWTO.md`'s `Reader` section with `point` and `const`.
+
+## Apply
+
+Spec: [`docs/specs/apply.md`](docs/specs/apply.md)
+
+### T-012: Apply ABC
+
+**Status:** Open
+
+Add `src/ekans/apply.py` with the `Apply[A_co]` abstract class per the spec: `Functor[A_co]` subclass, abstract `ap` method, plus the free `ap` function (function-first argument order) with its fallback `@overload` in place from the start, mirroring `fmap`'s pattern. Includes the real `docs/HOWTO.md` `Apply` section, replacing the current stub.
+
+### T-013: Apply associativity law-checking helper
+
+**Status:** Open
+**Depends on:** T-012
+
+`tests/apply_laws.py`: `assert_apply_law(make, values, equal=None)` per the spec's Testing strategy — generates `w`'s value plus two endofunctions via `hypothesis.strategies.functions()`, with a small typed `_compose` helper alongside it. T-014 is its first caller.
+
+### T-014: Identity implements Apply
+
+**Status:** Open
+**Depends on:** T-012, T-013
+
+Retrofit `Identity[A]` to also inherit `Apply[A]` (alongside its existing `Functor[A]`/`Pointed[A]`) and implement `ap`. Add its overload to the free `ap` function. Law test via the T-013 helper, plus a concrete example test. Update `docs/HOWTO.md`'s `Identity` section with a short `ap` addition.
