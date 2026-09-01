@@ -18,7 +18,9 @@ mypy src --strict
 
 ## Goals
 
-This package implements primitives for functional coding in Python. In particular it contains a set of abstract base classes for adding functional behaviors to immutable datatypes.
+- This package implements primitives for functional coding in Python. In particular it contains a set of abstract base classes for adding functional behaviors to immutable datatypes.
+- Partially the goal of this project is to learn about using Claude. Because of this we'll be using a workflow that is overkill for small personal projects.
+- Exploratory for now, but the intent is for this to become usable in a real personal project eventually — so treat the public API as something worth keeping clean and reasonably stable once it exists, not throwaway code.
 
 ## Design
 
@@ -27,10 +29,33 @@ This package implements primitives for functional coding in Python. In particula
 - From this root capabilities are added on by classes which inherit from it in as small steps as possible. For instance instead of directly creating an Applicative class that requires both `pure` and `ap` there will be a Pointed class which requires `point` and an Apply class which requires `ap`. For convenience there will be an Applicative class that inherits from both.
 - We will follow the standard family tree of type classes from Haskell as closely as possible.
 - This package will inherit from toolz and use it's primitives as much as possible.
-- The vast majority of exported functions will be curried.
 - The primitives this package exports will be extremely opinionated and they will not feel very pythonic. We will try to get as close to pure typed functional code as we can within Python.
 - However at the same time we will also make sure we stay as close to Python's design philosophy as these design choices allow.
 - We will make it as easy as possible for the user of this package to use structural pattern matching on it's exported types.
+
+### Immutability
+
+- Concrete types are `@dataclass(frozen=True)`. A frozen dataclass's generated `__init__` assigns fields via `object.__setattr__` internally, so it composes cleanly with `Functional`'s `__setattr__`/`__delattr__` override — construction works, and any mutation attempted afterward raises.
+
+### Type classes: ABC, not Protocol
+
+- `Functional` and every type class in the hierarchy (`Functor`, `Monad`, `Semigroup`, ...) are `abc.ABC` with `@abstractmethod` — nominal typing. A concrete type must explicitly inherit from the type classes it implements, rather than structurally satisfying them.
+
+### Currying
+
+- Not a hard requirement. `toolz.curry` isn't well-typed enough to survive `mypy --strict` cleanly, so exported functions are not required to be curried. Use plain, fully-typed functions; reach for `functools.partial` locally where it's genuinely ergonomic, but don't build a generic curry utility just to force the point.
+
+### Error handling
+
+- Prefer values over exceptions for expected failure cases: model them with an Either/Result-style type once one exists, rather than raising. Exceptions are reserved for programmer errors and broken invariants — genuine bugs, not expected control flow.
+
+### Laziness
+
+- Support both eager and lazy evaluation where it makes sense for a given type, rather than committing to eager-only or lazy-by-default across the board.
+
+### API shape
+
+- Provide both free functions and methods: a method like `obj.map(f)` should delegate to an underlying free function. Free functions are data-last where that reads naturally, but — per the currying decision above — are not required to support partial application via currying.
 
 ## Type hierarchy
 
@@ -47,30 +72,55 @@ This package implements primitives for functional coding in Python. In particula
         - Profunctor
             - Strong
 
+### First concrete types
+
+- `Identity[A]` (the identity functor) and `Forget[A]` (the forgetful/constant functor) are the first two concrete types to implement, to exercise the abstract hierarchy end-to-end before building anything more elaborate like `Maybe` or `Either`.
+
+## File organization
+
+- One file per class: e.g. `functional.py`, `functor.py`, `monad.py`, `identity.py`, `forget.py`. Mirrors the Type hierarchy above rather than grouping multiple classes into category modules.
+
 ## Conventions
 
 - Style: pure functional — This package only exports pure functions, immutable data classes and abstract base classes.
-- Tests: pytest (declared under `[project.optional-dependencies].dev`).
+- Tests: pytest (declared under `[project.optional-dependencies].dev`), plus Hypothesis for property-based testing (see Testing below).
 - Keep the venv (`venv/`) out of version control; it's already in `.gitignore` and `.claudeignore`.
 
-## Working with this repo
+## Testing
 
-- This is a personal experiment, not a team project — favor small, direct changes over heavy process.
-- There is no CI configured yet.
+- 100% test coverage, enforced via pytest.
+- Strict TDD: red-green-refactor. Write the failing test before the implementation, for every function and class — no exceptions.
+- Every Functor/Applicative/Monad (etc.) instance must additionally pass property-based law tests written with Hypothesis — identity, composition, associativity, and any other laws that type class requires. Example-based pytest tests alone aren't sufficient for type class instances.
+
+## Tooling
+
+- Formatting/linting: black + flake8 + isort.
+- Docstrings: Google style (`Args:`/`Returns:`/`Raises:`), required on all public functions.
+- Type checking: `mypy src --strict`. All public API must pass strict mode.
+
+### Dependencies
+
+- `toolz` is a runtime dependency (not dev-only) — the design leans on its primitives directly, so it belongs in `pyproject.toml`'s `[project.dependencies]`, not just assumed.
+
+### Python Version
+
+- Requires Python 3.11+ (matches `requires-python` in `pyproject.toml`).
+
+### CI
+
+- GitHub Actions should run lint (black/flake8/isort), `mypy --strict`, and pytest-with-coverage on push. Not yet set up — next concrete infra step.
+
+## Workflow
+
+- This is a personal experiment, not a team project, but part of the point is practicing a heavier, more deliberate workflow with Claude — so don't default to "small project, skip the ceremony."
+- Branching: feature branches + PRs, even though it's solo — practicing that flow is part of the goal.
+- Commits: one commit per type/class. Each type class or concrete type (e.g. `Identity`, `Forget`) lands as its own reviewed commit rather than being batched with others.
+- No print()/logging requirement — dropped. A pure functional library shouldn't be reaching for logging as a matter of course; if a genuine need comes up later, decide then rather than enforcing a blanket rule now.
 
 ## Code Requirements
 
-- 100% test coverage (use pytest)
+- 100% test coverage (use pytest; see Testing above for the TDD and Hypothesis requirements)
 - All exported names must be fully typed (mypy strict mode)
 - Use structural pattern matching (match/case) for control flow instead of if/elif chains
-- No unhandled exceptions—document or raise intentionally
-- No print() statements, use logging instead
-- Docstrings on all public functions
-
-### Type Checking
-
-Run mypy with: `mypy src --strict`
-All public API must pass strict mode.
-
-### Python Version
-Requires Python 3.10+ (for structural pattern matching)
+- No unhandled exceptions — document or raise intentionally; prefer value-based error handling per the Error handling section above
+- Docstrings on all public functions (Google style)

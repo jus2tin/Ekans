@@ -12,10 +12,18 @@ license = "AGPL-3.0-only"
 authors = [
     { name = "Justin Termaat" },
 ]
+dependencies = [
+    "toolz",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "hypothesis",
+    "mypy",
+    "black",
+    "flake8",
+    "isort",
 ]
 
 [tool.hatch.build.targets.wheel]
