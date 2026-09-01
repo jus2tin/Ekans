@@ -4,7 +4,7 @@ A pure functional experiment in Python.
 
 ## Project status
 
-Early stage. Package layout: `src/ekans/`, tests in `tests/` (not yet created), built with hatchling via `pyproject.toml`.
+Early stage. Package layout: `src/ekans/`, tests in `tests/`, built with hatchling via `pyproject.toml`. Current types: `Functional`, `Functor`, `Identity`, `Const`.
 
 ## Getting Started
 
@@ -13,7 +13,7 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
-mypy src --strict
+mypy src tests --strict
 ```
 
 ## Goals
@@ -114,7 +114,8 @@ mypy src --strict
 
 - Formatting/linting: black + flake8 + isort.
 - Docstrings: Google style (`Args:`/`Returns:`/`Raises:`), required on all public functions.
-- Type checking: `mypy src --strict`. All public API must pass strict mode.
+- Type checking: `mypy src tests --strict`. All public API must pass strict mode, and so must the test suite — no more, no less than what `src` already commits to.
+- `src/ekans/py.typed` is the PEP 561 marker declaring the package's inline types are meant to be read by consumers (mypy, editors, downstream projects). Without it, mypy treats any `ekans.*` import from *outside* `src` (test files, downstream code) as untyped `Any`, which silently swallows real errors in code that imports the package rather than living inside it. Confirmed included in the built wheel automatically (hatchling ships every file under a package directory, no extra config needed) and confirmed it's what actually fixes `mypy tests --strict`, not just a symbolic gesture.
 
 ### Dependencies
 
@@ -126,7 +127,7 @@ mypy src --strict
 
 ### CI
 
-- GitHub Actions should run lint (black/flake8/isort), `mypy --strict`, and pytest-with-coverage on push. Not yet set up — next concrete infra step.
+- GitHub Actions should run lint (black/flake8/isort), `mypy src tests --strict`, and pytest-with-coverage on push. Not yet set up — next concrete infra step.
 
 ## Workflow
 

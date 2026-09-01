@@ -15,6 +15,16 @@ from ekans.functor import Functor
 A = TypeVar("A")
 
 
+def _identity(a: A) -> A:
+    """Return `a` unchanged; a typed stand-in for `lambda a: a`.
+
+    `st.functions(like=...)` needs an annotated callable to infer the
+    generated functions' signature from -- a bare lambda leaves mypy
+    unable to infer its parameter type.
+    """
+    return a
+
+
 def assert_functor_laws(
     make: Callable[[A], Functor[A]],
     values: SearchStrategy[A],
@@ -33,8 +43,8 @@ def assert_functor_laws(
 
     @given(
         values,
-        st.functions(like=lambda a: a, returns=values, pure=True),
-        st.functions(like=lambda a: a, returns=values, pure=True),
+        st.functions(like=_identity, returns=values, pure=True),
+        st.functions(like=_identity, returns=values, pure=True),
     )
     def composition_law(value: A, f: Callable[[A], A], g: Callable[[A], A]) -> None:
         x = make(value)
