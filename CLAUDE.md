@@ -74,7 +74,9 @@ mypy src --strict
 
 ### First concrete types
 
-- `Identity[A]` (the identity functor) and `Forget[A]` (the forgetful/constant functor) are the first two concrete types to implement, to exercise the abstract hierarchy end-to-end before building anything more elaborate like `Maybe` or `Either`.
+- `Identity[A]` (the identity functor) — the first concrete type to implement, to exercise the abstract hierarchy end-to-end before building anything more elaborate like `Maybe` or `Either`.
+- `Forget[A]` (`data Forget a = Forget`) — a nullary/phantom type: it carries no runtime field, `A` exists only at the type level, and every value of `Forget[A]` is interchangeable.
+- `Const[A, B]` (`data Const a b = Const a`) — related but distinct from `Forget`: it holds a real runtime value of type `A` and ignores `B` entirely. This is the type that actually exercises `Functor` over its second parameter (mapping over `B` is a no-op since nothing of that type exists to touch) — worth adding alongside `Forget`.
 
 ## File organization
 
