@@ -131,9 +131,19 @@ mypy src --strict
 ## Workflow
 
 - This is a personal experiment, not a team project, but part of the point is practicing a heavier, more deliberate workflow with Claude — so don't default to "small project, skip the ceremony."
-- Branching: feature branches + PRs, even though it's solo — practicing that flow is part of the goal.
+- Branching: feature branches + PRs, even though it's solo — practicing that flow is part of the goal. PRs get created and merged through `gh` (installed at `~/AppData/Local/Programs/gh`, on PATH); no unmerged feature branches should sit around across sessions.
 - Commits: one commit per type/class. Each type class or concrete type (e.g. `Identity`, `Proxy`) lands as its own reviewed commit rather than being batched with others.
 - No print()/logging requirement — dropped. A pure functional library shouldn't be reaching for logging as a matter of course; if a genuine need comes up later, decide then rather than enforcing a blanket rule now.
+
+### Spec-driven: spec → tickets → implementation
+
+For any new type class or concrete type (not just Functor — this is the standing process now):
+
+1. **Spec first.** Claude drafts a spec at `docs/specs/<name>.md` (see `docs/specs/functor.md` for the template shape: Status, Summary, Motivation, Design, Concrete instances in scope, Testing strategy, Documentation requirements, Out of scope, Open questions/risks). Include law statements or other formal behavior contracts explicitly, not just prose. You review and edit it — nothing gets built against an unreviewed spec.
+2. **Tickets derive from the spec, not the other way around.** Once the spec is stable, Claude breaks it into tickets in `TICKETS.md` (see that file's own header for format/lifecycle) — one ticket per deliverable, each naming which spec it came from.
+3. **Implementation follows the existing Code Requirements and TDD** (see Testing above) per ticket.
+4. **Claude closes each ticket itself** once its Definition of Done is verifiably met — no separate sign-off step. `docs/HOWTO.md` gets updated as part of the ticket that introduces the documented concept, not as an afterthought.
+5. The spec+ticket artifacts themselves go through the normal branch+PR workflow like any other change.
 
 ## Code Requirements
 
