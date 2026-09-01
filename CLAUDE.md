@@ -27,6 +27,7 @@ mypy src --strict
 - The root of the tree of abstract classes will be an abstract class called Functional.
 - This class does nothing but override __setattr__ and __delattr__ to immediately raise an AttributeError.
 - From this root capabilities are added on by classes which inherit from it in as small steps as possible. For instance instead of directly creating an Applicative class that requires both `pure` and `ap` there will be a Pointed class which requires `point` and an Apply class which requires `ap`. For convenience there will be an Applicative class that inherits from both.
+- The same pattern applies to Monad: rather than requiring `bind` directly on Applicative, there will be a Bind class which requires `bind`, and Monad will inherit from both Applicative and Bind for convenience.
 - We will follow the standard family tree of type classes from Haskell as closely as possible.
 - This package will inherit from toolz and use it's primitives as much as possible.
 - The primitives this package exports will be extremely opinionated and they will not feel very pythonic. We will try to get as close to pure typed functional code as we can within Python.
@@ -61,12 +62,12 @@ mypy src --strict
 
 - Functional
     - Endofunctor based structures
+        - Pointed — provides `point`; needs only Functional
         - Functor
-        - Pointed
-        - Apply
-        - Applicative
-        - Bind
-        - Monad
+            - Apply — provides `ap`; needs Functor
+                - Applicative — Pointed + Apply
+                - Bind — provides `bind`; needs Apply
+                    - Monad — Applicative + Bind
     - Algebraic structures
         - Semigroup
         - Monoid
