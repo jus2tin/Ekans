@@ -314,7 +314,7 @@ Retrofit `All` to nominally inherit `Monoid` (no erasure problem -- `All` isn't 
 
 ### T-040: Sum's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Add `Sum.mempty(cls, value_type: Type[X])` per the spec's Design section: a new `SupportsZero` protocol (extending `SupportsAdd`) plus a hardcoded `int`/`float` registry, as a 3-variant `@overload` set. Does **not** override `Monoid.mempty` -- `Sum` does not nominally inherit `Monoid` (verified `[override]` LSP violation otherwise). Tests: `int`/`float`/custom-`SupportsZero`-type construction, genuine rejection of a type with neither, left/right identity against `.mappend()` directly (not via the T-038 helper, since `Sum` isn't nominally `Monoid`), plus `reveal_type` precision probes for all three positive cases. Cross-Product audit test: `Sum.mempty(int).extract() == 0`. Update `docs/HOWTO.md`'s `Sum` section.
