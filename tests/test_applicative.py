@@ -57,3 +57,16 @@ def test_immutability_still_holds_through_applicative() -> None:
         # mypy statically knows this frozen field is read-only ([misc]);
         # we're deliberately testing the runtime FrozenInstanceError it raises.
         box.value = 2  # type: ignore[misc]
+
+
+def test_abstract_fmap_raises_if_not_overridden() -> None:
+    box = _Box(value=1)
+    with pytest.raises(NotImplementedError):
+        Applicative.fmap(box, str)
+
+
+def test_abstract_ap_raises_if_not_overridden() -> None:
+    box = _Box(value=1)
+    wrapped_fn = _Box(value=str)
+    with pytest.raises(NotImplementedError):
+        Applicative.ap(box, wrapped_fn)

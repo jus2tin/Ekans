@@ -22,7 +22,22 @@ class Applicative(Pointed[A_co], Apply[A_co], Generic[A_co]):
     pass
 ```
 
-No new abstract methods — this is a pure composition, matching CLAUDE.md's own description of it as "a convenience class." Verified against `mypy --strict` and at runtime: `Applicative`'s own MRO resolves cleanly (`Pointed` and `Apply` are siblings — `Apply` reaches `Functor`/`Functional`, `Pointed` reaches `Functional` directly — same diamond shape `Identity` already proved works for `Functor`+`Pointed` back in `docs/specs/pointed.md`).
+No new abstract methods with new *behavior* — this is a pure composition, matching CLAUDE.md's own description of it as "a convenience class." Verified against `mypy --strict` and at runtime: `Applicative`'s own MRO resolves cleanly (`Pointed` and `Apply` are siblings — `Apply` reaches `Functor`/`Functional`, `Pointed` reaches `Functional` directly — same diamond shape `Identity` already proved works for `Functor`+`Pointed` back in `docs/specs/pointed.md`).
+
+**Correction found during T-016, applied to T-015's already-committed (not yet merged) file:** same lesson as `Apply` needing to narrow `Functor.fmap`'s return type — `Applicative` inherited `fmap`/`ap` from `Apply` still returning/accepting the looser `Apply[...]`, not `Applicative[...]`, so nothing statically knew that `fmap`-ing or `ap`-ing an `Applicative` value keeps it an `Applicative`. The law helper's chained calls (`u.fmap(_compose)`, `.ap(...)` results feeding back into further `.ap(...)` calls) surfaced this immediately. Fixed by re-declaring both, narrowed:
+
+```python
+class Applicative(Pointed[A_co], Apply[A_co], Generic[A_co]):
+    @abstractmethod
+    def fmap(self, f: Callable[[A_co], B]) -> "Applicative[B]":
+        raise NotImplementedError
+
+    @abstractmethod
+    def ap(self, f: "Applicative[Callable[[A_co], B]]") -> "Applicative[B]":  # type: ignore[override]
+        raise NotImplementedError
+```
+
+`ap`'s override needs `# type: ignore[override]` (narrowing the wrapper type in the parameter position, same situation `Identity.ap`'s own override is already in) — `fmap`'s doesn't, since only its return type changes, not its parameter shape. Still purely type-level narrowing; no new behavior, every concrete type already implements both from the `Pointed`/`Apply` rounds.
 
 ### Concrete types: drop the now-redundant explicit bases
 

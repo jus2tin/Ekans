@@ -126,9 +126,11 @@ Spec: [`docs/specs/applicative.md`](docs/specs/applicative.md)
 
 Add `src/ekans/applicative.py` with `Applicative[A_co](Pointed[A_co], Apply[A_co], Generic[A_co])` per the spec: no new abstract methods, pure composition. Includes the real `docs/HOWTO.md` `Applicative` section, replacing the current stub.
 
+Amended during T-016: `Applicative` also re-declares `fmap` and `ap`, narrowing both from the inherited `Apply[...]` to `Applicative[...]` — needed for the law helper's chained `.fmap(...)`/`.ap(...)` calls to type-check; see the spec's Design section.
+
 ### T-016: Applicative law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-015
 
 `tests/applicative_laws.py`: `assert_applicative_law(point, values, equal=None)` per the spec's Testing strategy — identity, homomorphism, interchange, and composition laws, all expressed via `point` alone (no separate `make`). T-017 and T-019 are its callers.
