@@ -275,7 +275,7 @@ Retrofit `All` to inherit `Extractable[bool]`, `extract` returns `self.value`. E
 
 ### T-035: Const implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `Const[A, B]` to also inherit `Extractable[A]` alongside its existing `Functor[B]`, `extract` returns `self.value` (the held `A`, not the phantom `B`). Verified in Phase 1 that this two-different-type-parameter composition type-checks cleanly. Example test plus a `reveal_type` precision probe. Update `docs/HOWTO.md`'s `Const` section with a short `extract` addition.

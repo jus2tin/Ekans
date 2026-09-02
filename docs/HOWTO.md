@@ -204,6 +204,8 @@ Same mechanism as `Identity`'s type-safe equality above, just extended to two ty
 
 **Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section below for a real, runnable example.
 
+`Const` is also `Extractable[A]` (see that section below) — `Const(value=5).extract()` returns `5`, the held `A`, never the phantom `B`. Worth noting alongside `Const[A, B]`'s two-type-parameter equality above: `Extractable[A]` and `Functor[B]` sit on *different* type parameters of the same class, and that composes cleanly — no conflict between the two.
+
 ## Pointed: getting a value into a box
 
 Every box we've built so far, you build by calling its own constructor: `Identity(value=42)`, `Const(value=1)`. `Pointed` is what happens when you want to say that in a *generic* way — "give me a box of this shape, holding this value" — without hardcoding which shape.

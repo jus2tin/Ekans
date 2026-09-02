@@ -6,6 +6,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from ekans.const import Const
+from ekans.extractable import Extractable
 from ekans.functor import fmap
 from ekans.identity import Identity
 from ekans.semigroup import Semigroup, mappend
@@ -93,3 +94,11 @@ def test_mappend_rejects_mismatched_container_types_at_runtime() -> None:
         # which the Union-typed implementation signature still has to
         # guard even though no typed caller can ever reach it.
         mappend(const, identity)  # type: ignore[call-overload]
+
+
+def test_extract_returns_the_held_value() -> None:
+    assert Const(value=5).extract() == 5
+
+
+def test_is_extractable() -> None:
+    assert isinstance(Const(value=5), Extractable)
