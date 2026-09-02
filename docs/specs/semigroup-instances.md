@@ -1,6 +1,6 @@
 # Spec: Semigroup instances (Sum, Product, All, Ap) + liftA2
 
-**Status:** Draft — awaiting review
+**Status:** Approved
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Semigroup instances"
 
 ## Summary
