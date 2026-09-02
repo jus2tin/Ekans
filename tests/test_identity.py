@@ -152,3 +152,34 @@ def test_extract_after_point_is_identity(value: int) -> None:
     # of the six Extractable types in this round -- see the spec's
     # Testing strategy section correction note.
     assert Identity.point(value).extract() == value
+
+
+@given(st.integers())
+def test_fmap_extract_naturality(value: int) -> None:
+    # Functor/Extractable naturality: extract(w.fmap(f)) == f(w.extract()).
+    # Only meaningful when fmap and extract operate on the same type
+    # parameter -- true for Identity, but structurally not for Const
+    # (fmap touches B, extract returns A) -- see
+    # docs/specs/invariance-audit.md.
+    f = str
+    box = Identity(value=value)
+    assert box.fmap(f).extract() == f(box.extract())
+
+
+def test_ap_extract_commutes() -> None:
+    # Apply/Extractable commutation: x.ap(f).extract() ==
+    # f.extract()(x.extract()) -- extract behaves as an Applicative
+    # homomorphism down to plain function application when both
+    # instances share the same type parameter.
+    wrapped_fn: Identity[Callable[[int], str]] = Identity(value=str)
+    x = Identity(value=5)
+    assert x.ap(wrapped_fn).extract() == wrapped_fn.extract()(x.extract())
+
+
+def test_mappend_extract_homomorphism() -> None:
+    # Semigroup/Extractable homomorphism: mappend(x, y).extract() ==
+    # x.extract().mappend(y.extract()) -- extract distributes over
+    # the free mappend function.
+    x = Identity(value=_Box(value=2))
+    y = Identity(value=_Box(value=3))
+    assert mappend(x, y).extract() == x.extract().mappend(y.extract())

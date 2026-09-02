@@ -1,4 +1,5 @@
 import pytest
+from hypothesis import given
 from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
@@ -61,3 +62,13 @@ def test_extract_returns_the_wrapped_value() -> None:
 
 def test_is_extractable() -> None:
     assert isinstance(Product(value=6), Extractable)
+
+
+@given(
+    st.integers(min_value=-1000, max_value=1000),
+    st.integers(min_value=-1000, max_value=1000),
+)
+def test_mappend_extract_distributes_over_multiplication(a: int, b: int) -> None:
+    # Semigroup/Extractable homomorphism, operator form -- same
+    # reasoning as Sum's. See docs/specs/invariance-audit.md.
+    assert Product(value=a).mappend(Product(value=b)).extract() == a * b

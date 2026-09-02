@@ -102,3 +102,15 @@ def test_extract_returns_the_held_value() -> None:
 
 def test_is_extractable() -> None:
     assert isinstance(Const(value=5), Extractable)
+
+
+def test_mappend_extract_homomorphism() -> None:
+    # Semigroup/Extractable homomorphism: mappend(x, y).extract() ==
+    # x.extract().mappend(y.extract()) -- same law as Identity's, via
+    # the free mappend function. Functor/Extractable naturality is
+    # deliberately NOT tested here -- fmap touches B, extract returns
+    # A, genuinely different type parameters -- see
+    # docs/specs/invariance-audit.md for the structural justification.
+    x: Const[_Box, str] = Const(value=_Box(value=2))
+    y: Const[_Box, str] = Const(value=_Box(value=3))
+    assert mappend(x, y).extract() == x.extract().mappend(y.extract())
