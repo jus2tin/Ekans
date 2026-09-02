@@ -1,7 +1,7 @@
 """Tuple2: a pair, Functor/Extractable biased to the second slot."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, Iterator, Type, TypeVar
 
 from ekans.extractable import Extractable
 from ekans.functor import Functor
@@ -78,6 +78,14 @@ class Tuple2(Functor[B], Extractable[B], Generic[A, B]):
             The wrapped second value.
         """
         return self.second
+
+    def __iter__(self) -> Iterator[B]:
+        """Yield `second` only -- `first` is untouched.
+
+        Returns:
+            An iterator yielding exactly `self.second`.
+        """
+        yield self.second
 
     @classmethod
     def point(cls, value_type: Type[S], value: B) -> "Tuple2[S, B]":
