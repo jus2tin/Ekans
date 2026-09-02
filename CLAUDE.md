@@ -88,6 +88,8 @@ mypy src tests --strict
                 - Applicative — Pointed + Apply
                 - Bind — provides `bind`; needs Apply
                     - Monad — Applicative + Bind
+    - Contravariant endofunctor structures — the mirror image of Endofunctor based structures above, one level down: `contramap` reverses `fmap`'s arrow direction the same way `Comonad`'s structures reverse `Monad`'s (not yet implemented)
+        - Contravariant — provides `contramap`; needs only Functional, same minimal placement as Pointed/Extractable (not yet implemented)
     - Comonad-based structures — the dual of Endofunctor based structures above; `extract`/`extend` mirror `point`/`bind` with the arrows reversed
         - Extractable — provides `extract`; needs only Functional, same minimal placement as Pointed
         - Extend — provides `extend`/`duplicate`; needs Functor (not yet implemented)
@@ -97,9 +99,13 @@ mypy src tests --strict
         - Monoid
     - Categorical structures
         - Category
-        - Profunctor
-            - Strong
+        - Profunctor — contravariant in its first parameter, covariant in its second; generalizes both `Functor` (fix the first parameter) and `Contravariant` (fix the second), though neither is a formal Haskell superclass of it, so this project doesn't model either as a literal ABC parent of `Profunctor` either
+            - Strong — a Profunctor that can politely ignore half a tuple while it works on the other half
+            - Choice — a Profunctor that can politely ignore half an Either while it works on the other half
+    - Two-parameter covariant structures — covariant in *both* parameters, unlike `Profunctor` (contravariant in the first); genuinely a different family, not nested under Profunctor or Functor
+        - Bifunctor — provides `bimap` (and, derived from it, `first`/`second` mapping over either parameter alone); needs only Functional (not yet implemented)
 - Foldable — not a `Functional` subclass; a `typing.Protocol` requiring only `__iter__`. See "Why Foldable is a Protocol" above.
+- Traversable — needs *both* `Functor` (from the Functional hierarchy above) and `Foldable`, matching Haskell's own `class (Functor t, Foldable t) => Traversable t`. Genuinely straddles both branches rather than nesting cleanly under either, so it's listed here rather than under `Functor` above (not yet implemented).
 
 ### First concrete types
 
