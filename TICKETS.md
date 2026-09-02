@@ -221,7 +221,7 @@ New type: `src/ekans/all.py`, `All` fixed to `bool` (not generic), `mappend` is 
 
 ### T-028: `liftA2` free function
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-016 (Applicative ABC + law helper)
 
 Add `liftA2` to `src/ekans/applicative.py`: `@overload`-per-concrete-type (`Identity`, `Reader`) plus the loose `Applicative[A]`/`Applicative[B]` fallback, matching `ap`'s shape in `apply.py` -- per the spec's Design section correction, a single fully-generic version silently loses precision (`reveal_type` gives `Applicative[int]`, not `Identity[int]`), the same failure mode that got `Pointed.point`'s free-function form rejected earlier; the overload set fixes this. Example-based tests per overload, plus a `reveal_type` precision probe (deleted after use). Short `docs/HOWTO.md` addition to the existing `Applicative` section.

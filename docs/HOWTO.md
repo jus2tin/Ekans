@@ -401,6 +401,17 @@ Notice the class declaration: just `Applicative[A]`, nothing else — no separat
 
 That last one is worth being honest about: it's the identical formula to `Apply`'s own associativity law — testing it again here isn't finding new bugs so much as confirming `point` doesn't quietly break something `ap` alone already got right.
 
+**`liftA2`: running a two-argument function across two boxes at once.** `fmap` handles one-argument functions; `ap` lets you chain further arguments in one at a time. `liftA2` is the shortcut for the common two-argument case, built purely from `fmap`/`ap` that `Applicative` already provides:
+
+```python
+from ekans.applicative import liftA2
+from ekans.identity import Identity
+
+liftA2(lambda a, b: a + b, Identity(value=2), Identity(value=3))  # Identity(value=5)
+```
+
+Like `ap`, this needs its own `@overload` per concrete type to stay precise — a version typed only against the abstract `Applicative[A]`/`Applicative[B]` type-checks fine but silently hands back the loose `Applicative[C]` for every call, even a plain `Identity` one. That's worth knowing about generally: a free function that touches concrete types only through an abstract handle can look perfectly type-safe while quietly losing precision, with no error to catch it — the exact trap `Pointed.point`'s free-function form fell into and got rejected for entirely (see `Pointed` above). `liftA2` had a way out `point` didn't (a real generic implementation, so the overloads could be added rather than dropping the free function altogether), but the underlying lesson is the same.
+
 ## Semigroup: squishing two into one
 
 Every type class so far has been about boxes: things that hold a value and know how to be mapped over, pointed into, or applied through. `Semigroup` is different — it's not about boxes at all. It's a property a plain type can have: knowing how to combine two of itself into a third.

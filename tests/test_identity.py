@@ -8,7 +8,7 @@ from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
-from ekans.applicative import Applicative
+from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
 from ekans.functor import fmap
 from ekans.identity import Identity
@@ -128,3 +128,9 @@ def test_free_mappend_is_associative(a: int, b: int, c: int) -> None:
     y = Identity(value=_Box(value=b))
     z = Identity(value=_Box(value=c))
     assert mappend(mappend(x, y), z) == mappend(x, mappend(y, z))
+
+
+def test_liftA2_lifts_a_two_argument_function() -> None:
+    x: Identity[int] = Identity(value=2)
+    y: Identity[int] = Identity(value=3)
+    assert liftA2(lambda a, b: a + b, x, y) == Identity(value=5)
