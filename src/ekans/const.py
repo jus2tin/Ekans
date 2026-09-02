@@ -1,7 +1,7 @@
 """The constant functor: holds a value, ignores the type it maps over."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, Iterator, Type, TypeVar
 
 from ekans.extractable import Extractable
 from ekans.functor import Functor
@@ -97,6 +97,14 @@ class Const(Functor[B], Extractable[A], Generic[A, B]):
             A new Const holding `value_type.mempty()`.
         """
         return Const(value=value_type.mempty())
+
+    def __iter__(self) -> Iterator[B]:
+        """Yield nothing -- there's no `B` ever held to yield.
+
+        Returns:
+            An empty iterator.
+        """
+        return iter(())
 
     @classmethod
     def mempty(cls, value_type: Type[S]) -> "Const[S, B]":
