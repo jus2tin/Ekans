@@ -175,10 +175,10 @@ Add `src/ekans/semigroup.py` with the `Semigroup(Functional)` abstract class per
 
 ### T-022: `mappend` free function + Identity support
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020, T-021
 
-Add the free `mappend(a, b)` function to `src/ekans/semigroup.py` with its first `@overload`, `Identity[S] -> Identity[S] -> Identity[S]` bound by `S = TypeVar("S", bound=Semigroup)` (per the spec's Design section — `Identity` itself does not inherit `Semigroup`). A small local illustrative `Semigroup`-implementing type lives in the test module for this and all following Semigroup tickets, per the spec's note that no shipped Ekans type is unconditionally a Semigroup. Law test via the T-021 helper. Update `docs/HOWTO.md`'s `Identity` section with a short `mappend` addition.
+Add the free `mappend(a, b)` function to `src/ekans/semigroup.py`, typed `Identity[S] -> Identity[S] -> Identity[S]` and bound by `S = TypeVar("S", bound=Semigroup)` (per the spec's Design section — `Identity` itself does not inherit `Semigroup`). Ships as a single plain-typed function, *not* an `@overload` — mypy rejects a single-variant overload set (`error: Single overload definition, multiple required  [misc]`, confirmed during this ticket; see the spec's Design section correction note), same lesson as `fmap`'s T-001/`ap`'s T-012. Becomes a real `@overload` set once T-023 adds `Const`'s variant. A small local illustrative `Semigroup`-implementing type lives in the test module for this and all following Semigroup tickets, per the spec's note that no shipped Ekans type is unconditionally a Semigroup. Law test via the T-021 helper. Update `docs/HOWTO.md`'s `Identity` section with a short `mappend` addition.
 
 ### T-023: `Const[A, B]` `mappend` support
 
