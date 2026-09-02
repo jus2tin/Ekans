@@ -1,7 +1,7 @@
 """The identity functor: a trivial wrapper around a single value."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, Iterator, Type, TypeVar
 
 from ekans.extractable import Extractable
 from ekans.monad import Monad
@@ -136,3 +136,11 @@ class Identity(Monad[A], Extractable[A], Generic[A]):
             The result of `f(self.value)`.
         """
         return f(self.value)
+
+    def __iter__(self) -> Iterator[A]:
+        """Yield the wrapped value.
+
+        Returns:
+            An iterator yielding exactly `self.value`.
+        """
+        yield self.value
