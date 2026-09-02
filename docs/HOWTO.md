@@ -583,6 +583,8 @@ Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that 
 
 `Identity.mempty(SomeMonoidType)` builds the identity element, wrapped: `Identity.mempty(Box)` gives `Identity(value=Box.mempty())`. Same non-nominal story as `Identity`'s `Semigroup` support (see the `Monoid` section above) — but unlike `mappend`, this one's a classmethod directly on `Identity`, not a free function, since a classmethod's own `TypeVar` doesn't leak onto every `Identity[A]` the way a nominal instance method would.
 
+`Identity` is also `Foldable` (see the `Foldable` section below): `list(Identity(value=5))` gives `[5]` — one element, matching `.extract()` exactly, since both operate on the same `A`.
+
 ## Const: the box that refuses to look
 
 `Identity` is the functor that changes the *least*. `Const[A, B]` is the functor that changes *nothing at all*, and it earns that in a much stranger way: it doesn't have a value of type `B` to change in the first place.
@@ -634,6 +636,8 @@ ap(f, x)  # Const(value=_Box(value=3)) -- both held values combined via mappend
 `Const.mempty(SomeMonoidType)` holds the identity element the same way `Identity.mempty` wraps it — `Const.mempty(Box)` gives `Const(value=Box.mempty())`, `B` freely inferred from context, the same way `fmap` freely re-tags it.
 
 `Const` is also `Extractable[A]` (see that section above) — `Const(value=5).extract()` returns `5`, the held `A`, never the phantom `B`. Worth noting alongside `Const[A, B]`'s two-type-parameter equality above: `Extractable[A]` and `Functor[B]` sit on *different* type parameters of the same class, and that composes cleanly — no conflict between the two.
+
+`Const` is also `Foldable` (see the `Foldable` section below) — folding over `B`, the same parameter `fmap` touches, not the `A` that `extract` returns. `list(Const(value=5))` is always `[]`, no matter what's held: there's simply no `B` value to yield. Worth sitting with, since it's the one place in this gallery where `extract()` and `list()` genuinely disagree about "the" contained value — they're not looking at the same type parameter at all.
 
 ## Reader: a box that's actually a function
 
@@ -704,6 +708,8 @@ Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that se
 
 With both `Applicative` and `Bind` in hand, `Reader` is a `Monad` too (see that section above), the same free composition `Identity` gets — `class Reader(Monad[A], Generic[R, A])` is the whole story, no new methods needed.
 
+**Deliberately not `Foldable`, for the same reason it's not comparable.** Every other type in this gallery got a real `__iter__` (see the `Foldable` section below); `Reader` didn't. Producing its one `A` needs an `R` from somewhere, and there's no canonical environment to supply on its behalf — the same "functions aren't structurally inspectable from outside" reasoning that ruled out `__eq__` above rules out iteration too.
+
 ## Sum: addition, boxed
 
 Every `Semigroup` example so far has been a stand-in built purely to demonstrate the shape of the law. `Sum[A]` is the first one that's actually useful: it wraps a value, and `mappend` is just `+`.
@@ -747,6 +753,8 @@ That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a sma
 
 `Sum.mempty(int)` gives `Sum(value=0)`, `Sum.mempty(float)` gives `Sum(value=0.0)` — the additive identity, explicitly typed (see the `Monoid` section above for why it needs that explicit argument, and why `Sum` still isn't nominally a `Monoid`). Any custom type works too, as long as it implements a `.zero()` classmethod alongside its `__add__` — `int`/`float` are special-cased inside `mempty` since neither has one of its own.
 
+`Sum` is also `Foldable` (see the `Foldable` section below) — `list(Sum(value=6))` gives `[6]`, matching `.extract()` exactly, same one-element shape as `Identity`.
+
 ## Product: multiplication, boxed
 
 `Product[M]` is `Sum`'s sibling: same shape, different operation. `mappend` is `*` instead of `+`, bounded by its own small `SupportsMul` `Protocol` requiring a self-typed `__mul__`, structurally rather than by inheritance — same reasoning as `Sum`'s `SupportsAdd` above.
@@ -764,6 +772,8 @@ Wrapping the number in `Product` rather than `Sum` says which combining operatio
 
 `Product.mempty(int)` gives `Product(value=1)`, `Product.mempty(float)` gives `Product(value=1.0)` — the multiplicative identity, same explicit-`Type[X]` shape as `Sum.mempty` and for the same reason (see the `Monoid` section above). Custom types need a `.one()` classmethod alongside `__mul__`.
 
+`Product` is also `Foldable`, same shape as `Sum`: `list(Product(value=6))` gives `[6]`.
+
 ## All: everyone has to agree
 
 `Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:
@@ -780,6 +790,8 @@ The name gives away the intuition: combine a bunch of `All`s together and the re
 `All` is also `Extractable[bool]` — not a generic `Extractable[A]`, since `All` itself was never generic: `All(value=True).extract()` returns `True`.
 
 `All` is also, genuinely, a `Monoid` — the one type in this round with no erasure wall to hit, since it isn't generic over anything. `All.mempty()` is exactly the nullary classmethod `Monoid` promises, no `Type[X]` argument needed: `All.mempty() == All(value=True)`, `True` being AND's identity (combine anything with `True` and you get that thing back).
+
+**Deliberately not `Foldable`.** Every other type in this gallery has a real type parameter to fold over; `All` doesn't — it's fixed over `bool`, with no `TypeVar` anywhere in its definition. Haskell's own `All` has kind `*`, not `* -> *`, so `Foldable All` isn't even expressible there — there's no instance to give `All` a real `__iter__` in service of, faithfully or otherwise.
 
 ## Ap: a box, held by a box
 
@@ -819,6 +831,8 @@ Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.va
 `Ap` is also `Extractable[S]` — and, unlike every other instance in this round, it doesn't stop at its own immediate field. `Ap[S]`'s `.value` is an `Identity[S]`, but `extract` reaches straight through it to `S`: `a.extract()` on `Ap(value=Identity(value=Box(value=1)))` returns `Box(value=1)` directly, not `Identity(value=Box(value=1)))`. The implementation is exactly that one-line delegation, `self.value.extract()` — `Identity` being `Extractable` too is what makes it possible.
 
 `Ap.mempty(SomeMonoidType)` is the simplest `mempty` in the package — no `int`/`float` registry needed the way `Sum`/`Product` need one, since `S` is already bound to `Semigroup` and the `Type[X]` argument is bound one notch tighter, to `Monoid`, which already has its own real `mempty()`. `Ap.mempty` just delegates straight to it: `Identity(value=value_type.mempty())`.
+
+`Ap` is also `Foldable` (see the `Foldable` section below) — and, matching `extract`'s own reach-through behavior above, `list(Ap(value=Identity(value=Box(value=1))))` gives `[Box(value=1)]`, folding straight through the wrapped `Identity` rather than stopping at it.
 
 ## do: turning bind chains into procedural-looking code
 
@@ -941,6 +955,8 @@ mappend(Nothing(), Just(value=Box(value=1)))                 # Just(value=Box(va
 
 `Maybe.mempty(SomeSemigroupType)` builds the identity element — always `Nothing()`, no matter what `SomeSemigroupType` is. That last part is the interesting bit: every other conditional `mempty` in this library (`Identity`'s, `Const`'s, `Reader`'s) needs its held type to be a full `Monoid`, because it has to call that type's own `mempty()` to produce a real value to hold. `Maybe.mempty` never does that — `Nothing()` is already a valid identity regardless of what `A` is, so the constraint drops all the way down to `Semigroup`. Checked directly: a type that's a `Semigroup` but deliberately *not* a `Monoid` (no `mempty()` of its own at all) still works fine as `Maybe.mempty`'s argument — something that would be a hard `mypy --strict` error for `Identity.mempty`/`Const.mempty`/`Reader.mempty` on the same type.
 
+`Maybe` is also `Foldable` (see the `Foldable` section below): `list(Just(value=5))` gives `[5]`, `list(Nothing())` gives `[]` — the same short-circuit intuition `fmap`/`bind` already have, just spelled as iteration.
+
 ## Either: L or R, biased to R
 
 `Maybe` tells you *whether* something worked. `Either[L, R]` also tells you *why* it didn't: it's either `Left(value)`, holding an `L` (conventionally an error), or `Right(value)`, holding an `R` (conventionally the real result). Matches Haskell's `data Either a b = Left a | Right b` directly, sealed the same way `Maybe` is:
@@ -982,6 +998,8 @@ describe(Left(value="boom"))  # 'error: boom'
 **The bare-construction gap here is the same shape as `Maybe`'s `Nothing()`, but better-behaved.** `Right(value=5)` pins `R=int` from the argument, but has nothing at all to infer `L` from; `Left(value="boom")` is the mirror image. Passed straight to something like `reveal_type()`, the untouched side still quietly resolves to `Never`, exactly like bare `Nothing()` does. But assign either to a variable without an annotation, and — checked directly — `mypy --strict` refuses to guess at all: a real `Need type annotation for "..."` error, not a silent decay. `Nothing` can't get this same protection because it has no field whatsoever to anchor *any* of its meaning; `Left`/`Right` each have one real field, and `mypy` uses it. Bracket explicitly (`Left[str, int](value="boom")`) or annotate the target (`boom: Either[str, int] = Left(value="boom")`, as above) either way.
 
 **No `Extractable`, no `Semigroup`/`Monoid` — both by design, not oversight.** `Extractable` is out for the same reason `Maybe`'s `Nothing` is: `Left` has no `R` to give back through a total `extract() -> R`. `Semigroup`/`Monoid` are out for a different reason than `Maybe`'s conditional support — Haskell's own base library doesn't define one for `Either` at all, so there's no established `mappend`/`mempty` shape to port the way `Maybe`'s `Nothing <> x = x` is a direct transcription of a real instance.
+
+`Either` is also `Foldable`, biased to `R` the same way everything else here is: `list(Right(value=5))` gives `[5]`, `list(Left(value="boom"))` gives `[]`.
 
 `@do` short-circuits on `Either` exactly like it does on `Maybe` — a `Left` anywhere in a do-block halts it immediately, `Right`s thread through normally:
 
@@ -1044,6 +1062,8 @@ mempty = (mempty, mempty)
 
 This is the first conditional instance in this codebase needing *two* independent bounds at once (`A: Semigroup` *and* `B: Semigroup`) rather than one — verified directly that both are enforced independently: a pair where only one side is a genuine `Monoid` (the other merely a `Semigroup`) is a real `mypy --strict` rejection when building `mempty`, not a silent pass.
 
+`Tuple2` is also `Foldable` (see the `Foldable` section below), biased to `second` exactly like its `Functor`/`Extractable`: `list(Tuple2(first="env", second=5))` gives `[5]`, `first` never appearing.
+
 ## Foldable: anything you can already iterate
 
 Every type class so far has been about a specific shape of box, built by explicitly inheriting from an abstract class. `Foldable` is different in kind, not just in content: it's not a `Functional` subclass at all, and nothing needs to opt in to it on purpose.
@@ -1059,7 +1079,7 @@ isinstance(5, Foldable)                  # False
 
 `Foldable` is a `typing.Protocol` requiring exactly one thing: `__iter__`. That's a deliberate departure from this project's own "ABC, not Protocol" rule for everything else in the hierarchy — and the reason is specific, not a general loosening. `ap`, `point`, `fmap`, and the rest aren't things Python types already have by accident, so nominal inheritance (declare it, mean it) costs nothing. `__iter__` is the opposite: `list`, `tuple`, `dict`, every generator, and any custom type with its own `__iter__` for reasons that have nothing to do with `Foldable` *already* has the one thing this protocol asks for. Structural typing is what lets all of them satisfy `Foldable` automatically, with zero code changes, which is exactly the point.
 
-None of Ekans's own shipped types (`Identity`, `Const`, `Reader`, `Maybe`, `Either`, `Tuple2`, and friends) satisfy `Foldable` — none of them are iterable, and that's expected rather than a gap. `Foldable` exists to bring already-iterable things (Python's own builtins, mostly) into this library's vocabulary, not to give Ekans's own single/double-value wrapper types a new capability they were never shaped for.
+`Foldable` exists to bring already-iterable things — Python's own builtins, mostly — into this library's vocabulary. It turns out most of Ekans's own concrete types earn a place in that vocabulary too, once each one's Haskell counterpart is checked for a real `Foldable` instance to mirror: see each type's own section above (`Identity`, `Const`, `Maybe`, `Either`, `Tuple2`, `Sum`, `Product`, `Ap`) for exactly what it iterates over, and the closing note at the end of this section for the two structural exceptions.
 
 **The core folds.** Everything else in this section is built on `foldr`, `foldl`, or the `Monoid`/`Semigroup`-based combinators below:
 
@@ -1200,6 +1220,22 @@ maximum([])
 #   ...
 # ValueError: maximum: empty Foldable
 ```
+
+**Which of Ekans's own types are `Foldable`, in one place.** Eight concrete types earned a real `__iter__`, each checked against its actual Haskell counterpart rather than added by default — see each type's own section above for the runnable example:
+
+| Type | Iterates over |
+|---|---|
+| `Identity[A]` | one element (`self.value`) |
+| `Just[A]` | one element; `Nothing[A]` iterates zero |
+| `Right[L, R]` | one element; `Left[L, R]` iterates zero |
+| `Tuple2[A, B]` | one element, `second` only |
+| `Sum[A]`, `Product[M]` | one element each |
+| `Ap[S]` | one element, folded through the wrapped `Identity[S]` |
+| `Const[A, B]` | always zero — folds over the phantom `B`, never actually held |
+
+**Two structural exceptions, on purpose.** `All` isn't generic at all (fixed over `bool`, no type parameter to fold over) — Haskell's own `All` has kind `*`, not `* -> *`, so there's no `Foldable` instance there to mirror in the first place. `Reader[R, A]` wraps a function; producing its one `A` needs an `R` from somewhere, and no canonical one exists to iterate on its behalf — the same reasoning that already rules out `Reader`'s `__eq__` (see that section above).
+
+None of these types nominally inherit `Foldable` — consistent with everything above, `__iter__` alone is what makes each one structurally satisfy it, the exact same way a plain `list` always did.
 
 ## Coming soon
 
