@@ -77,6 +77,28 @@ class Const(Functor[B], Extractable[A], Generic[A, B]):
         return self.value
 
     @classmethod
+    def point(cls, value_type: Type[S], value: B) -> "Const[S, B]":
+        """Construct a Const wrapping `value_type`'s identity element.
+
+        Mirrors `Const.mempty` exactly -- `value` is accepted purely
+        for `Pointed.point`'s conventional shape, then unconditionally
+        discarded (same precedent as `Const.fmap`'s unused `f`).
+        There's no `A` value derivable from `value: B`, so
+        `value_type.mempty()` is the only well-typed source for the
+        result's held value.
+
+        Args:
+            value_type: The concrete Monoid type to build the
+                identity for.
+            value: Accepted for `Pointed.point`'s conventional shape;
+                unused.
+
+        Returns:
+            A new Const holding `value_type.mempty()`.
+        """
+        return Const(value=value_type.mempty())
+
+    @classmethod
     def mempty(cls, value_type: Type[S]) -> "Const[S, B]":
         """Construct the identity element for `value_type`, held.
 
