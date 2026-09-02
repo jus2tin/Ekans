@@ -3,15 +3,14 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 
-from ekans.apply import Apply
-from ekans.pointed import Pointed
+from ekans.applicative import Applicative
 
 A = TypeVar("A")
 B = TypeVar("B")
 
 
 @dataclass(frozen=True, eq=False)
-class Identity(Pointed[A], Apply[A], Generic[A]):
+class Identity(Applicative[A], Generic[A]):
     """Wraps a single value without adding any structure.
 
     Attributes:

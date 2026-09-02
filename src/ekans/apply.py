@@ -7,10 +7,12 @@ from ekans.functor import Functor
 
 if TYPE_CHECKING:
     from ekans.identity import Identity
+    from ekans.reader import Reader
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
 B = TypeVar("B")
+R = TypeVar("R")
 
 
 class Apply(Functor[A_co], Generic[A_co]):
@@ -55,6 +57,8 @@ class Apply(Functor[A_co], Generic[A_co]):
 
 @overload
 def ap(f: "Identity[Callable[[A], B]]", x: "Identity[A]") -> "Identity[B]": ...
+@overload
+def ap(f: "Reader[R, Callable[[A], B]]", x: "Reader[R, A]") -> "Reader[R, B]": ...
 @overload
 def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]: ...
 def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]:  # noqa: E302

@@ -1,8 +1,14 @@
+from typing import Callable
+
 import pytest
+from applicative_laws import assert_applicative_law
+from apply_laws import assert_apply_law
 from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
+from ekans.applicative import Applicative
+from ekans.apply import ap
 from ekans.functor import Functor, fmap
 from ekans.reader import Reader, const
 
@@ -76,3 +82,33 @@ def test_point_then_fmap_chains_correctly() -> None:
 def test_call_delegates_to_run() -> None:
     reader: Reader[int, int] = Reader(run=lambda r: r + 1)
     assert reader(1) == 2
+
+
+def test_ap_threads_the_same_environment_into_both_sides() -> None:
+    add_r: Reader[int, int] = Reader(run=lambda r: r)
+    multiply_by_r: Reader[int, Callable[[int], int]] = Reader(
+        run=lambda r: (lambda x: x * r)
+    )
+    threaded = add_r.ap(multiply_by_r)
+    assert threaded.run(3) == 9
+    assert threaded.run(4) == 16
+
+
+def test_free_ap_delegates_to_the_method() -> None:
+    add_r: Reader[int, int] = Reader(run=lambda r: r)
+    multiply_by_r: Reader[int, Callable[[int], int]] = Reader(
+        run=lambda r: (lambda x: x * r)
+    )
+    assert ap(multiply_by_r, add_r).run(3) == 9
+
+
+def test_satisfies_the_apply_law() -> None:
+    assert_apply_law(_make_reader, st.integers(), equal=_compare_readers)
+
+
+def test_is_an_applicative() -> None:
+    assert isinstance(Reader(run=lambda r: r), Applicative)
+
+
+def test_satisfies_the_applicative_laws() -> None:
+    assert_applicative_law(Reader.point, st.integers(), equal=_compare_readers)

@@ -122,34 +122,36 @@ Spec: [`docs/specs/applicative.md`](docs/specs/applicative.md)
 
 ### T-015: Applicative ABC
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/applicative.py` with `Applicative[A_co](Pointed[A_co], Apply[A_co], Generic[A_co])` per the spec: no new abstract methods, pure composition. Includes the real `docs/HOWTO.md` `Applicative` section, replacing the current stub.
 
+Amended during T-016: `Applicative` also re-declares `fmap` and `ap`, narrowing both from the inherited `Apply[...]` to `Applicative[...]` — needed for the law helper's chained `.fmap(...)`/`.ap(...)` calls to type-check; see the spec's Design section.
+
 ### T-016: Applicative law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-015
 
 `tests/applicative_laws.py`: `assert_applicative_law(point, values, equal=None)` per the spec's Testing strategy — identity, homomorphism, interchange, and composition laws, all expressed via `point` alone (no separate `make`). T-017 and T-019 are its callers.
 
 ### T-017: Identity implements Applicative
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-015, T-016
 
 Retrofit `Identity[A]`'s base classes to `Applicative[A]` only, dropping the now-redundant explicit `Pointed[A]`/`Apply[A]` (MRO conflict otherwise — same lesson as T-006/T-014). No new methods. Law test via the T-016 helper. Update `docs/HOWTO.md`'s `Identity` section with a short note.
 
 ### T-018: Reader implements Apply
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-012 (Apply ABC)
 
 Add `ap` to `Reader[R, A]`, threading the same environment value into both the wrapped function and the wrapped value — verified behavior, not just type, per the spec's Design section. Add its overload to the free `ap` function. Law test via `apply_laws.assert_apply_law` with the environment-sampling `equal` comparator. Update `docs/HOWTO.md`'s `Reader` section with a real `ap` example.
 
 ### T-019: Reader implements Applicative
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-016, T-018
 
 Retrofit `Reader[R, A]`'s base classes to `Applicative[A]` only, dropping the now-redundant explicit `Functor[A]`/`Pointed[A]` — same MRO lesson as T-017. No new methods. Law test via the T-016 helper with the environment-sampling `equal` comparator. Update `docs/HOWTO.md`'s `Reader` section with a short note.
