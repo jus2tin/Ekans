@@ -293,7 +293,7 @@ Spec: [`docs/specs/monoid.md`](docs/specs/monoid.md)
 
 ### T-037: Monoid ABC
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020 (Semigroup ABC)
 
 Add `src/ekans/monoid.py` with `Monoid(Semigroup)` per the spec: abstract `mempty(cls) -> Self` classmethod, nullary, no `Type[X]` argument at the ABC level (the erasure workaround only applies to types that hit the wall -- `Monoid` itself states the honest, correct Haskell-faithful contract). Includes the real `docs/HOWTO.md` `Monoid` section, including the erasure-wall story.

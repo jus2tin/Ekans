@@ -22,6 +22,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [All: everyone has to agree](#all-everyone-has-to-agree)
 - [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
 - [Extractable: getting a value out of a box](#extractable-getting-a-value-out-of-a-box)
+- [Monoid: something out of nothing](#monoid-something-out-of-nothing)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -629,13 +630,47 @@ Like `point`, `extract` needed no design detour to get precise: it's an ordinary
 
 `extract` connects to more than just `point`, too — `extract(w.fmap(f)) == f(w.extract())` and `x.ap(f).extract() == f.extract()(x.extract())` both hold for `Identity`, and `mappend(x, y).extract() == x.extract().mappend(y.extract())` holds everywhere a type is both `Semigroup` and `Extractable`. See `docs/specs/invariance-audit.md` for the full cross-class inventory, including the pairs that were checked and genuinely don't have a law (like `Const`'s `Functor`/`Extractable` naturality — `fmap` and `extract` touch different type parameters there, so the law isn't just false, it isn't even well-typed).
 
+## Monoid: something out of nothing
+
+`Semigroup` tells you how to combine two of something. `Monoid` adds the other half: a value that does *nothing* when combined — combine anything with it, on either side, and you get the original thing back unchanged.
+
+```python
+from dataclasses import dataclass
+
+from ekans.monoid import Monoid
+
+@dataclass(frozen=True, eq=False)
+class Box(Monoid):
+    value: int
+
+    def mappend(self, other: "Box") -> "Box":
+        return Box(value=self.value + other.value)
+
+    @classmethod
+    def mempty(cls) -> "Box":
+        return Box(value=0)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+Box.mempty().mappend(Box(value=5))  # Box(value=5) -- unchanged
+Box(value=5).mappend(Box.mempty())  # Box(value=5) -- unchanged either side
+```
+
+**The honest wall this hits.** Haskell's `mempty :: a` is nullary — no arguments, the type alone tells you what to build. Python can't do this for a *generic* container: types are erased at runtime, so a hypothetical `Sum.mempty()` has no way to know, when the code actually runs, whether you wanted `int`'s `0` or `float`'s `0.0`. This isn't a hunch — it was checked directly, and the result is worse than a type error: a hardcoded `Sum.mempty()` lets mypy *confidently and wrongly* infer `Sum[float]` from context while the running code silently hands back an `int` `0`. A silent wrong answer that type-checks clean is far worse than a loud one that doesn't.
+
+So `Sum`/`Product`/`Ap`'s `mempty` takes the type explicitly — `Sum.mempty(int)`, not `Sum.mempty()` — trading a little of Haskell's elegance for something that's actually correct. And because a classmethod requiring that extra argument doesn't honestly satisfy `Monoid`'s zero-argument contract (verified: `mypy --strict` flags it as a real signature-incompatibility error, not a narrow-return-type situation `# type: ignore` could paper over), those three don't nominally inherit `Monoid` at all — only `All` does, since it isn't generic over anything and has nothing to erase. See each type's own section above for its `mempty`.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
 
 - **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.
-- **Monoid** — a `Semigroup` that also knows how to make something out of *nothing* (an identity element).
 - **Extend** — the dual of `Bind`: instead of chaining box-producing functions together, it lets a function that consumes a *whole box* (`w a -> b`) be applied across a structure without collapsing it (`extend`/`duplicate`).
 - **Comonad** — `Functor`, `Extractable`, and `Extend`, together — the mirror image of `Monad`.
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.
