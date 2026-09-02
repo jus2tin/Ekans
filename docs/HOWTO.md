@@ -533,6 +533,8 @@ Product(value=1.5).mappend(Product(value=2))  # Product(value=3.0)
 
 Wrapping the number in `Product` rather than `Sum` says which combining operation you mean for the exact same underlying `int`/`float` — the same disambiguation `Sum` needed above, just picking the other one.
 
+`Product` is also `Extractable`: `Product(value=6).extract()` returns `6`, same shape as `Sum`.
+
 ## All: everyone has to agree
 
 `Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:

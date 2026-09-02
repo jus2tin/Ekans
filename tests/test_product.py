@@ -2,6 +2,7 @@ import pytest
 from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
+from ekans.extractable import Extractable
 from ekans.product import Product
 from ekans.semigroup import Semigroup
 
@@ -52,3 +53,11 @@ def test_satisfies_the_semigroup_law() -> None:
     # Hypothesis-generated values from producing huge, slow-to-compare
     # numbers.
     assert_semigroup_law(Product, st.integers(min_value=-1000, max_value=1000))
+
+
+def test_extract_returns_the_wrapped_value() -> None:
+    assert Product(value=6).extract() == 6
+
+
+def test_is_extractable() -> None:
+    assert isinstance(Product(value=6), Extractable)
