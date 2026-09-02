@@ -63,7 +63,9 @@ mypy src tests --strict
 
 ### API shape
 
-- Provide both free functions and methods: a method like `obj.map(f)` should delegate to an underlying free function. Free functions are data-last where that reads naturally, but — per the currying decision above — are not required to support partial application via currying.
+- Free functions are the primary, central API surface — not methods. In practice, when a type nominally implements a type class, the method holds the real implementation and the free function delegates to it (e.g. `ap(f, x)` returns `x.ap(f)`); methods exist for ergonomics ("for funsies" — `obj.map(f)` reads nicer than `map(f, obj)`) but are never the only way to do something, and are not load-bearing for the library's actual capability.
+- This matters most for constrained/conditional instances, where a concrete type can't nominally inherit a type class at all (e.g. `Identity[A]` is only a `Semigroup` when `A` is — see `Semigroup`'s design) but can still satisfy the free function via a bound `TypeVar`. In that case there is no method — the free function is the *only* interface, not just the preferred one. Design new type-class support free-function-first; add a method alongside it only when a type genuinely, nominally implements the class.
+- Free functions are data-last where that reads naturally, but — per the currying decision above — are not required to support partial application via currying.
 
 ### Why Star matters
 
