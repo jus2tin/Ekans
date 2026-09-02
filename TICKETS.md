@@ -245,7 +245,7 @@ Add `src/ekans/extractable.py` with the `Extractable[A_co](Functional, Generic[A
 
 ### T-031: Identity implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `Identity[A]` to also inherit `Extractable[A]` and implement `extract` (returns `self.value`). Verified via Phase 1 that this composes with `Applicative[A]` in the MRO with no conflict. Example test plus a `reveal_type` precision probe (deleted after use). Update `docs/HOWTO.md`'s `Identity` section with a short `extract` addition.

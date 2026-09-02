@@ -124,6 +124,8 @@ Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that 
 
 **Conditionally a `Semigroup`, but only via the free function.** `Identity[A]` can `mappend` two of itself precisely when `A` can — `Identity(value=1)` and `Identity(value=2)` combine fine if the wrapped value knows how, but there's no principled way to combine `Identity(value="a")` and `Identity(value="b")` unless `str` itself is a `Semigroup` (it isn't, here). Because that constraint lives on `A`, not on `Identity` itself, `Identity` never nominally inherits `Semigroup` — instead, `ekans.semigroup.mappend(a, b)` is a free function bounded by `TypeVar("S", bound=Semigroup)`, so calling it on `Identity[str]` is a `mypy --strict` error, not a runtime crash. See the `Semigroup` section below for the full story.
 
+`Identity` is also `Extractable` (see that section below) — `Identity(value=5).extract()` just returns `5`. For `Identity` specifically this is barely more than `.value` with extra ceremony, but it's the same uniform `extract` every other single-value type in the package shares, and `Identity` is the simplest possible place to see it work.
+
 ## Functor: doing something to what's inside
 
 `Functor` is the first real capability in the hierarchy — everything before it (`Functional`, `Identity`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.

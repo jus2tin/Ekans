@@ -4,13 +4,14 @@ from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 
 from ekans.applicative import Applicative
+from ekans.extractable import Extractable
 
 A = TypeVar("A")
 B = TypeVar("B")
 
 
 @dataclass(frozen=True, eq=False)
-class Identity(Applicative[A], Generic[A]):
+class Identity(Applicative[A], Extractable[A], Generic[A]):
     """Wraps a single value without adding any structure.
 
     Attributes:
@@ -88,3 +89,11 @@ class Identity(Applicative[A], Generic[A]):
             The hash of the wrapped value.
         """
         return hash(self.value)
+
+    def extract(self) -> A:
+        """Return the wrapped value.
+
+        Returns:
+            The wrapped value.
+        """
+        return self.value
