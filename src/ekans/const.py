@@ -1,14 +1,18 @@
 """The constant functor: holds a value, ignores the type it maps over."""
 
 from dataclasses import dataclass
-from typing import Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
 
 from ekans.extractable import Extractable
 from ekans.functor import Functor
 
+if TYPE_CHECKING:
+    from ekans.monoid import Monoid
+
 A = TypeVar("A")
 B = TypeVar("B")
 C = TypeVar("C")
+S = TypeVar("S", bound="Monoid")
 
 
 @dataclass(frozen=True, eq=False)
@@ -71,3 +75,20 @@ class Const(Functor[B], Extractable[A], Generic[A, B]):
             The held value.
         """
         return self.value
+
+    @classmethod
+    def mempty(cls, value_type: Type[S]) -> "Const[S, B]":
+        """Construct the identity element for `value_type`, held.
+
+        Does not override `Monoid.mempty` -- same non-nominal
+        reasoning as `Identity.mempty`. `B` is freely inferred from
+        context, unrelated to `S`, same as `Const.fmap`'s re-tagging.
+
+        Args:
+            value_type: The concrete Monoid type to build the identity
+                for.
+
+        Returns:
+            A new Const holding `value_type.mempty()`.
+        """
+        return Const(value=value_type.mempty())

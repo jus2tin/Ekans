@@ -9,6 +9,7 @@ from ekans.const import Const
 from ekans.extractable import Extractable
 from ekans.functor import fmap
 from ekans.identity import Identity
+from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup, mappend
 
 
@@ -21,6 +22,24 @@ class _Box(Semigroup):
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, _Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+@dataclass(frozen=True, eq=False)
+class _MonoidBox(Monoid):
+    value: int
+
+    def mappend(self, other: "_MonoidBox") -> "_MonoidBox":
+        return _MonoidBox(value=self.value + other.value)
+
+    @classmethod
+    def mempty(cls) -> "_MonoidBox":
+        return _MonoidBox(value=0)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _MonoidBox) and self.value == other.value
 
     def __hash__(self) -> int:
         return hash(self.value)
@@ -114,3 +133,33 @@ def test_mappend_extract_homomorphism() -> None:
     x: Const[_Box, str] = Const(value=_Box(value=2))
     y: Const[_Box, str] = Const(value=_Box(value=3))
     assert mappend(x, y).extract() == x.extract().mappend(y.extract())
+
+
+def test_mempty_constructs_the_identity_for_a_monoid_type() -> None:
+    a: Const[_MonoidBox, str] = Const.mempty(_MonoidBox)
+    assert a == Const(value=_MonoidBox(value=0))
+
+
+def test_is_not_a_monoid() -> None:
+    # Const can't nominally inherit Monoid -- same non-nominal
+    # reasoning as its conditional Semigroup support.
+    assert not isinstance(Const(value=1), Monoid)
+
+
+def test_mempty_is_the_left_identity() -> None:
+    x: Const[_MonoidBox, str] = Const(value=_MonoidBox(value=5))
+    a: Const[_MonoidBox, str] = Const.mempty(_MonoidBox)
+    assert mappend(a, x) == x
+
+
+def test_mempty_is_the_right_identity() -> None:
+    x: Const[_MonoidBox, str] = Const(value=_MonoidBox(value=5))
+    a: Const[_MonoidBox, str] = Const.mempty(_MonoidBox)
+    assert mappend(x, a) == x
+
+
+def test_mempty_extract_equals_the_value_types_own_mempty() -> None:
+    # Monoid/Extractable, non-nominal form -- per the spec's
+    # Cross-Product audit section.
+    a: Const[_MonoidBox, str] = Const.mempty(_MonoidBox)
+    assert a.extract() == _MonoidBox.mempty()

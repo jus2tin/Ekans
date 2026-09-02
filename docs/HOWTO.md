@@ -203,9 +203,11 @@ a == b
 
 Same mechanism as `Identity`'s type-safe equality above, just extended to two type parameters instead of one — mypy's invariance check works purely at the type level, so it catches the mismatch on `B` even though `B` never shows up in a runtime attribute to compare.
 
-**Note for later:** `Const` doesn't get a `Pointed` instance yet, and won't until `Semigroup`/`Monoid` exist. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. No `Monoid`, no honest `Const.point`.
+**Note for later:** `Const` still doesn't get a `Pointed` instance — `Monoid` now exists (see that section below), so the blocker's gone, but retrofitting `Const` is its own follow-up round rather than bundled in here. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source.
 
 **Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section below for a real, runnable example.
+
+`Const.mempty(SomeMonoidType)` holds the identity element the same way `Identity.mempty` wraps it — `Const.mempty(Box)` gives `Const(value=Box.mempty())`, `B` freely inferred from context, the same way `fmap` freely re-tags it.
 
 `Const` is also `Extractable[A]` (see that section below) — `Const(value=5).extract()` returns `5`, the held `A`, never the phantom `B`. Worth noting alongside `Const[A, B]`'s two-type-parameter equality above: `Extractable[A]` and `Functor[B]` sit on *different* type parameters of the same class, and that composes cleanly — no conflict between the two.
 

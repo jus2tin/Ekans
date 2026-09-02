@@ -342,7 +342,7 @@ Add `Identity.mempty(cls, value_type: Type[S])` where `S: Monoid` (a fresh metho
 
 ### T-044: Const's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Same shape as T-043: `Const.mempty(cls, value_type: Type[S]) -> Const[S, B]`, `B` freely inferred from context, unrelated to `S`. Verified in Phase 1. Update `docs/HOWTO.md`'s `Const` section.
