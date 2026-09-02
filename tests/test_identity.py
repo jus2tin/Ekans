@@ -143,3 +143,12 @@ def test_extract_returns_the_wrapped_value() -> None:
 
 def test_is_extractable() -> None:
     assert isinstance(Identity(value=5), Extractable)
+
+
+@given(st.integers())
+def test_extract_after_point_is_identity(value: int) -> None:
+    # A real law connecting Pointed and Extractable when a type
+    # implements both: extract . point == id. Only Identity does,
+    # of the six Extractable types in this round -- see the spec's
+    # Testing strategy section correction note.
+    assert Identity.point(value).extract() == value

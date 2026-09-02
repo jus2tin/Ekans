@@ -250,6 +250,8 @@ Add `src/ekans/extractable.py` with the `Extractable[A_co](Functional, Generic[A
 
 Retrofit `Identity[A]` to also inherit `Extractable[A]` and implement `extract` (returns `self.value`). Verified via Phase 1 that this composes with `Applicative[A]` in the MRO with no conflict. Example test plus a `reveal_type` precision probe (deleted after use). Update `docs/HOWTO.md`'s `Identity` section with a short `extract` addition.
 
+**Amended during T-033:** added a Hypothesis-checked test of `extract(point(a)) == a` -- a real law connecting `Pointed` and `Extractable` when a type implements both (only `Identity` does, of the six types in this round). See the spec's Testing strategy section correction note.
+
 ### T-032: Sum implements Extractable
 
 **Status:** Closed

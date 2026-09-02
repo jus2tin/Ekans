@@ -615,6 +615,8 @@ Box(value=42).extract()  # 42
 
 Like `point`, `extract` needed no design detour to get precise: it's an ordinary instance method narrowing only its *return* type per concrete class, which mypy already tracks exactly — no `# type: ignore` anywhere, on any of the six instances.
 
+**A law that shows up when a type is both.** `Extractable` on its own has no law to check — same as `Pointed` on its own. But a type that implements *both* has a real, checkable property connecting them: build a box from a value with `point`, then immediately `extract` it back out, and you get the original value — `extract(point(a)) == a`. `Identity` is currently the only type in the package that's both `Pointed` and `Extractable` (`Sum`/`Product`/`All`/`Const`/`Ap` are `Extractable` but were never `Pointed` to begin with), so this is checked directly against `Identity` rather than through a generic reusable helper — the same "wait for a second real instance before generalizing" rule this project already applies to `@overload` growth.
+
 `Pointed`/`Extractable` are also the first deliberate step toward `Comonad` (a `Functor` that can `extract` and `extend`) — the mirror image of how `Monad` got built up here from `Pointed`/`Functor`/`Apply`/`Bind` piece by piece, just run in the opposite direction. `Comonad` itself, and the `extend`/`duplicate` half of it, aren't built yet — see "Coming soon" below.
 
 ## Coming soon
