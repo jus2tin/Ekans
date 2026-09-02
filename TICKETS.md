@@ -490,3 +490,26 @@ Documentation: `docs/HOWTO.md` addition to the `Maybe` section explaining the co
 **Depends on:** T-057
 
 Per `docs/specs/do.md`'s own flagged follow-up: add one additional test to `tests/test_do.py` using real `Just`/`Nothing` (not the existing local `_Just`/`_Nothing` double, which stays -- the do-notation guarantee is generic over any `Monad`, not `Maybe`-specific) confirming a `@do` block halts at the first `Nothing` and never resumes past it. Short addition to `docs/HOWTO.md`'s existing `@do` section noting the real example now exists.
+
+## Either
+
+Spec: [`docs/specs/either.md`](docs/specs/either.md)
+
+### T-060: `Either`/`Left`/`Right` core type
+
+**Status:** Closed
+
+New file `src/ekans/either.py`: abstract `Either(Monad[R], Generic[L, R])` plus concrete `Left[L, R]`/`Right[L, R]`, biased `Right` (matching Haskell's `Functor`/`Monad` convention). Per the spec: `Either`'s own abstract `fmap`/`ap`/`bind`/`point` re-declarations return `Union[Left[L, R2], Right[L, R2]]`, not the abstract `Either[L, R2]` -- same `match`/`case` exhaustiveness reasoning verified fresh for `Either` in Phase 1, not assumed from `Maybe`. `point` defined once, concretely, directly on `Either` (`Either.point(value) = Right(value=value)`, matching Haskell's `pure = Right`). `Left`'s `fmap`/`ap`/`bind` are no-op re-tags of `R`, structurally identical to `Const.fmap`'s re-tagging -- but unlike `Const`, `Left` gets a real, precise, nominal `Bind`/`Monad` instance (verified in Phase 1: `Left(value=...).bind(...)` resolves precisely, no `Never`, because `Right` -- `Left`'s sealed-hierarchy sibling -- keeps `R` real and inferable across the pair, the way `Just` does for `Nothing`'s `A`). Both `Left`/`Right` frozen dataclasses, type-safe `__eq__`/`__hash__` checking both type parameters independently (`Const`'s existing two-parameter Equality convention). No `Extractable` instance (excluded, same reasoning as `Maybe`'s `Nothing`) and no `Semigroup`/`Monoid` instance (excluded structurally -- no canonical Haskell base instance to port, unlike `Maybe`'s).
+
+Add `Either`/`Left`/`Right` overloads to the existing free `fmap` (`functor.py`), `ap` (`apply.py`), `bind` (`bind.py`) functions.
+
+Tests (`tests/test_either.py`): construction, equality/hash (both type parameters checked independently, including confirming `Left(...) != Right(...)` even with equal-comparing held values), immutability. A `match`/`case` exhaustiveness demonstration mirroring `test_maybe.py`'s `_describe` helper. Law tests via the existing helpers (`assert_functor_laws`, `assert_apply_law`, `assert_applicative_law`, `assert_bind_law`, `assert_monad_law`) called against `Right`. Explicit, separate example-based tests confirming `Left.fmap`/`.ap`/`.bind` never call their argument function. A test-only third `Either` subclass (mirroring `test_maybe.py`'s `_RogueMaybe`) proving `Right.ap`/`.bind`'s `case _: raise AssertionError` fallbacks are real safety nets. A documented example contrasting `Either`'s bare-construction behavior (a real `mypy` `[var-annotated]` error on an unannotated assignment) against `Maybe`'s silent `Nothing[Never]` decay.
+
+Documentation: new `docs/HOWTO.md` `Either` section covering the sealed shape and `Right`-bias, a runnable `match`/`case` example, the `Union`-vs-abstract finding (may reference `Maybe`'s section for the shared reasoning), the better-behaved bare-construction contrast, and a short note on why `Semigroup`/`Monoid` don't appear here.
+
+### T-061: Real `Either`-based short-circuit regression test for `@do`
+
+**Status:** Open
+**Depends on:** T-060
+
+Per `docs/specs/do.md`'s original follow-up (which named both `Maybe` and `Either`): add one additional test to `tests/test_do.py` using real `Left`/`Right` confirming a `@do` block halts at the first `Left` and never resumes past it. Short addition to `docs/HOWTO.md`'s existing `@do` section noting the second real example now exists.

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar, Union, overload
 from ekans.apply import Apply
 
 if TYPE_CHECKING:
+    from ekans.either import Either, Left, Right
     from ekans.identity import Identity
     from ekans.maybe import Just, Maybe, Nothing
     from ekans.reader import Reader
@@ -14,6 +15,7 @@ A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
 B = TypeVar("B")
 R = TypeVar("R")
+L = TypeVar("L")
 
 
 class Bind(Apply[A_co], Generic[A_co]):
@@ -57,6 +59,16 @@ def bind(f: Callable[[A], "Maybe[B]"], x: "Nothing[A]") -> "Nothing[B]": ...
 def bind(
     f: Callable[[A], "Maybe[B]"], x: "Maybe[A]"
 ) -> "Union[Just[B], Nothing[B]]": ...
+@overload  # noqa: E302
+def bind(
+    f: Callable[[A], "Either[L, B]"], x: "Right[L, A]"
+) -> "Union[Left[L, B], Right[L, B]]": ...
+@overload
+def bind(f: Callable[[A], "Either[L, B]"], x: "Left[L, A]") -> "Left[L, B]": ...
+@overload  # noqa: E302
+def bind(
+    f: Callable[[A], "Either[L, B]"], x: "Either[L, A]"
+) -> "Union[Left[L, B], Right[L, B]]": ...
 @overload
 def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]": ...
 def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]":  # noqa: E302
