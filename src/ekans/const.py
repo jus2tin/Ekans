@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 
+from ekans.extractable import Extractable
 from ekans.functor import Functor
 
 A = TypeVar("A")
@@ -11,7 +12,7 @@ C = TypeVar("C")
 
 
 @dataclass(frozen=True, eq=False)
-class Const(Functor[B], Generic[A, B]):
+class Const(Functor[B], Extractable[A], Generic[A, B]):
     """Holds a value of type `A`, ignoring `B` entirely.
 
     Attributes:
@@ -62,3 +63,11 @@ class Const(Functor[B], Generic[A, B]):
             The hash of the held value.
         """
         return hash(self.value)
+
+    def extract(self) -> A:
+        """Return the held value.
+
+        Returns:
+            The held value.
+        """
+        return self.value

@@ -239,48 +239,50 @@ Spec: [`docs/specs/extractable.md`](docs/specs/extractable.md)
 
 ### T-030: Extractable ABC
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/extractable.py` with the `Extractable[A_co](Functional, Generic[A_co])` abstract class per the spec: covariant type parameter, abstract `extract` method, no override narrowing needed anywhere (verified in Phase 1 -- return-type-only narrowing on an instance method doesn't trigger `[override]`, same category of finding as `Semigroup.mappend`'s `typing.Self`). Includes the real `docs/HOWTO.md` `Extractable` section (new -- no prior stub existed for this, since it wasn't part of the originally planned hierarchy). `CLAUDE.md`'s Type hierarchy gets the new "Comonad-based structures" branch (`Extractable`, plus `Extend`/`Comonad` as stubs) in this same commit.
 
 ### T-031: Identity implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `Identity[A]` to also inherit `Extractable[A]` and implement `extract` (returns `self.value`). Verified via Phase 1 that this composes with `Applicative[A]` in the MRO with no conflict. Example test plus a `reveal_type` precision probe (deleted after use). Update `docs/HOWTO.md`'s `Identity` section with a short `extract` addition.
 
+**Amended during T-033:** added a Hypothesis-checked test of `extract(point(a)) == a` -- a real law connecting `Pointed` and `Extractable` when a type implements both (only `Identity` does, of the six types in this round). See the spec's Testing strategy section correction note.
+
 ### T-032: Sum implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `Sum[A]` to inherit `Extractable[A]`, `extract` returns `self.value`. Example test. Update `docs/HOWTO.md`'s `Sum` section with a short `extract` addition.
 
 ### T-033: Product implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `Product[M]` to inherit `Extractable[M]`, `extract` returns `self.value`. Example test. Update `docs/HOWTO.md`'s `Product` section with a short `extract` addition.
 
 ### T-034: All implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `All` to inherit `Extractable[bool]`, `extract` returns `self.value`. Example test. Update `docs/HOWTO.md`'s `All` section with a short `extract` addition.
 
 ### T-035: Const implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `Const[A, B]` to also inherit `Extractable[A]` alongside its existing `Functor[B]`, `extract` returns `self.value` (the held `A`, not the phantom `B`). Verified in Phase 1 that this two-different-type-parameter composition type-checks cleanly. Example test plus a `reveal_type` precision probe. Update `docs/HOWTO.md`'s `Const` section with a short `extract` addition.
 
 ### T-036: Ap implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030, T-031 (Ap's `extract` delegates to Identity's)
 
 Retrofit `Ap[S]` to inherit `Extractable[S]`, `extract` returns `self.value.extract()` -- fully unwrapping through the wrapped `Identity[S]` to `S` directly, per the spec's Design section (not a shallow `Identity[S]` return). Example test plus a `reveal_type` precision probe confirming the full unwrap. Update `docs/HOWTO.md`'s `Ap` section with a short `extract` addition.

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Generic, Protocol, TypeVar
 
+from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
 
 _MulT = TypeVar("_MulT", bound="SupportsMul")
@@ -20,7 +21,7 @@ M = TypeVar("M", bound=SupportsMul)
 
 
 @dataclass(frozen=True, eq=False)
-class Product(Semigroup, Generic[M]):
+class Product(Semigroup, Extractable[M], Generic[M]):
     """Wraps a value, combining two via `*`.
 
     Attributes:
@@ -63,3 +64,11 @@ class Product(Semigroup, Generic[M]):
             The hash of the wrapped value.
         """
         return hash(self.value)
+
+    def extract(self) -> M:
+        """Return the wrapped value.
+
+        Returns:
+            The wrapped value.
+        """
+        return self.value

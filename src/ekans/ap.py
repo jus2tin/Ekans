@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 from ekans.applicative import liftA2
+from ekans.extractable import Extractable
 from ekans.identity import Identity
 from ekans.semigroup import Semigroup
 
@@ -17,7 +18,7 @@ S = TypeVar("S", bound=Semigroup)
 
 
 @dataclass(frozen=True, eq=False)
-class Ap(Semigroup, Generic[S]):
+class Ap(Semigroup, Extractable[S], Generic[S]):
     """Wraps an Identity[S], combining two via liftA2's lifted mappend.
 
     A faithful (if narrower) transcription of Haskell's
@@ -65,3 +66,17 @@ class Ap(Semigroup, Generic[S]):
             The hash of the wrapped Identity.
         """
         return hash(self.value)
+
+    def extract(self) -> S:
+        """Return the fully unwrapped held value.
+
+        Delegates to the wrapped Identity's own `extract`, so this
+        returns `S` directly rather than the intermediate `Identity[S]`
+        -- Identity wrapping S here is an implementation detail forced
+        by Python's lack of higher-kinded types, not something a
+        caller of extract should have to peel back themselves.
+
+        Returns:
+            The fully unwrapped held value.
+        """
+        return self.value.extract()

@@ -21,6 +21,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Product: multiplication, boxed](#product-multiplication-boxed)
 - [All: everyone has to agree](#all-everyone-has-to-agree)
 - [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
+- [Extractable: getting a value out of a box](#extractable-getting-a-value-out-of-a-box)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -123,6 +124,8 @@ Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that 
 
 **Conditionally a `Semigroup`, but only via the free function.** `Identity[A]` can `mappend` two of itself precisely when `A` can — `Identity(value=1)` and `Identity(value=2)` combine fine if the wrapped value knows how, but there's no principled way to combine `Identity(value="a")` and `Identity(value="b")` unless `str` itself is a `Semigroup` (it isn't, here). Because that constraint lives on `A`, not on `Identity` itself, `Identity` never nominally inherits `Semigroup` — instead, `ekans.semigroup.mappend(a, b)` is a free function bounded by `TypeVar("S", bound=Semigroup)`, so calling it on `Identity[str]` is a `mypy --strict` error, not a runtime crash. See the `Semigroup` section below for the full story.
 
+`Identity` is also `Extractable` (see that section below) — `Identity(value=5).extract()` just returns `5`. For `Identity` specifically this is barely more than `.value` with extra ceremony, but it's the same uniform `extract` every other single-value type in the package shares, and `Identity` is the simplest possible place to see it work.
+
 ## Functor: doing something to what's inside
 
 `Functor` is the first real capability in the hierarchy — everything before it (`Functional`, `Identity`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.
@@ -200,6 +203,8 @@ Same mechanism as `Identity`'s type-safe equality above, just extended to two ty
 **Note for later:** `Const` doesn't get a `Pointed` instance yet, and won't until `Semigroup`/`Monoid` exist. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. No `Monoid`, no honest `Const.point`.
 
 **Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section below for a real, runnable example.
+
+`Const` is also `Extractable[A]` (see that section below) — `Const(value=5).extract()` returns `5`, the held `A`, never the phantom `B`. Worth noting alongside `Const[A, B]`'s two-type-parameter equality above: `Extractable[A]` and `Functor[B]` sit on *different* type parameters of the same class, and that composes cleanly — no conflict between the two.
 
 ## Pointed: getting a value into a box
 
@@ -515,6 +520,8 @@ Sum(value=Vector(x=1, y=2)).mappend(Sum(value=Vector(x=3, y=4)))
 
 That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a small `Protocol` requiring a self-typed `__add__`, so *any* type with an `__add__` that takes and returns its own type works — no need to explicitly subclass anything. Try it with a type that has no `__add__` at all and mypy rejects the `Sum(value=...)` call outright, before you ever get to `mappend`.
 
+`Sum` is also `Extractable` (see that section below): `Sum(value=6).extract()` returns the plain `6` back out, no `Sum` wrapper left — the shape that makes `sum = lambda foldable: foldMap(Sum, foldable).extract()` work, once `foldMap` exists.
+
 ## Product: multiplication, boxed
 
 `Product[M]` is `Sum`'s sibling: same shape, different operation. `mappend` is `*` instead of `+`, bounded by its own small `SupportsMul` `Protocol` requiring a self-typed `__mul__`, structurally rather than by inheritance — same reasoning as `Sum`'s `SupportsAdd` above.
@@ -528,6 +535,8 @@ Product(value=1.5).mappend(Product(value=2))  # Product(value=3.0)
 
 Wrapping the number in `Product` rather than `Sum` says which combining operation you mean for the exact same underlying `int`/`float` — the same disambiguation `Sum` needed above, just picking the other one.
 
+`Product` is also `Extractable`: `Product(value=6).extract()` returns `6`, same shape as `Sum`.
+
 ## All: everyone has to agree
 
 `Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:
@@ -540,6 +549,8 @@ All(value=True).mappend(All(value=False))   # All(value=False)
 ```
 
 The name gives away the intuition: combine a bunch of `All`s together and the result is `True` only if *all* of them were. Since there's nothing to be generic over — `bool` is `bool`, there's no version of AND that varies by what's inside — `All` skips the `Protocol`/`TypeVar` machinery `Sum`/`Product` needed entirely, and its `__eq__` is typed against plain `object` rather than needing the type-parameter-narrowing trick from `Identity`/`Sum`/`Product`, since there's no type parameter to mismatch in the first place.
+
+`All` is also `Extractable[bool]` — not a generic `Extractable[A]`, since `All` itself was never generic: `All(value=True).extract()` returns `True`.
 
 ## Ap: a box, held by a box
 
@@ -576,6 +587,46 @@ Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.va
 
 **The honest gap:** Haskell's `Ap` is `newtype Ap f a = Ap { getAp :: f a }`, generic over *any* `Applicative f` — you could build `Ap Maybe Int`, `Ap [] Int`, `Ap IO Int`, whatever. Ekans' `Ap[S]` can't do that: it's fixed to wrap `Identity[S]` specifically, not generic over the box itself. This isn't a shortcut taken for convenience — it's a real wall. Python's type system has no *higher-kinded types*: a `TypeVar` can only ever stand for a concrete type, never for a type constructor waiting to be filled in. Try to write `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar`, and mypy refuses outright (`Type variable "F" used with arguments`) — there's no way to say "some box, whichever one, applied to `A`" the way Haskell's kind system lets you. So Ekans' `Ap` picks one box (`Identity`, the simplest one available) and stops there, rather than pretending to a generality the type system genuinely can't check.
 
+`Ap` is also `Extractable[S]` — and, unlike every other instance in this round, it doesn't stop at its own immediate field. `Ap[S]`'s `.value` is an `Identity[S]`, but `extract` reaches straight through it to `S`: `a.extract()` on `Ap(value=Identity(value=Box(value=1)))` returns `Box(value=1)` directly, not `Identity(value=Box(value=1)))`. The implementation is exactly that one-line delegation, `self.value.extract()` — `Identity` being `Extractable` too is what makes it possible.
+
+## Extractable: getting a value out of a box
+
+`Pointed` (above) is "give me a box of this shape, holding this value" — a value goes in, a box comes out. `Extractable` runs that exact arrow backwards: a box goes in, its value comes out.
+
+```python
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+from ekans.extractable import Extractable
+
+A = TypeVar("A")
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Extractable[A], Generic[A]):
+    value: A
+
+    def extract(self) -> A:
+        return self.value
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and bool(self.value == other.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+Box(value=42).extract()  # 42
+```
+
+`Box` here is an illustrative stand-in, the same way it was for `Functor`/`Pointed` above; `Identity`, `Sum`, `Product`, `All`, `Const`, and `Ap` are the real, shipped examples — every type in the package that genuinely holds exactly one value now has `extract` (`Reader`/`Star` don't, since they wrap a function rather than holding a value directly, and `Proxy` doesn't, since it holds nothing at runtime at all).
+
+Like `point`, `extract` needed no design detour to get precise: it's an ordinary instance method narrowing only its *return* type per concrete class, which mypy already tracks exactly — no `# type: ignore` anywhere, on any of the six instances.
+
+**A law that shows up when a type is both.** `Extractable` on its own has no law to check — same as `Pointed` on its own. But a type that implements *both* has a real, checkable property connecting them: build a box from a value with `point`, then immediately `extract` it back out, and you get the original value — `extract(point(a)) == a`. `Identity` is currently the only type in the package that's both `Pointed` and `Extractable` (`Sum`/`Product`/`All`/`Const`/`Ap` are `Extractable` but were never `Pointed` to begin with), so this is checked directly against `Identity` rather than through a generic reusable helper — the same "wait for a second real instance before generalizing" rule this project already applies to `@overload` growth.
+
+`Pointed`/`Extractable` are also the first deliberate step toward `Comonad` (a `Functor` that can `extract` and `extend`) — the mirror image of how `Monad` got built up here from `Pointed`/`Functor`/`Apply`/`Bind` piece by piece, just run in the opposite direction. `Comonad` itself, and the `extend`/`duplicate` half of it, aren't built yet — see "Coming soon" below.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
@@ -583,6 +634,8 @@ These don't exist in the package yet. Each one gets its own full section, comple
 - **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.
 - **Monoid** — a `Semigroup` that also knows how to make something out of *nothing* (an identity element).
+- **Extend** — the dual of `Bind`: instead of chaining box-producing functions together, it lets a function that consumes a *whole box* (`w a -> b`) be applied across a structure without collapsing it (`extend`/`duplicate`).
+- **Comonad** — `Functor`, `Extractable`, and `Extend`, together — the mirror image of `Monad`.
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.
 - **Profunctor** — a box with an in-door and an out-door, each independently adaptable.
 - **Strong** — a `Profunctor` that can politely ignore half a tuple while it works on the other half.

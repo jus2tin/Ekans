@@ -2,11 +2,12 @@
 
 from dataclasses import dataclass
 
+from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
 
 
 @dataclass(frozen=True, eq=False)
-class All(Semigroup):
+class All(Semigroup, Extractable[bool]):
     """Wraps a bool, combining two via logical AND.
 
     Attributes:
@@ -44,3 +45,11 @@ class All(Semigroup):
             The hash of the wrapped value.
         """
         return hash(self.value)
+
+    def extract(self) -> bool:
+        """Return the wrapped boolean.
+
+        Returns:
+            The wrapped boolean.
+        """
+        return self.value

@@ -10,6 +10,7 @@ from hypothesis import strategies as st
 
 from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
+from ekans.extractable import Extractable
 from ekans.functor import fmap
 from ekans.identity import Identity
 from ekans.semigroup import Semigroup, mappend
@@ -134,3 +135,20 @@ def test_liftA2_lifts_a_two_argument_function() -> None:
     x: Identity[int] = Identity(value=2)
     y: Identity[int] = Identity(value=3)
     assert liftA2(lambda a, b: a + b, x, y) == Identity(value=5)
+
+
+def test_extract_returns_the_wrapped_value() -> None:
+    assert Identity(value=5).extract() == 5
+
+
+def test_is_extractable() -> None:
+    assert isinstance(Identity(value=5), Extractable)
+
+
+@given(st.integers())
+def test_extract_after_point_is_identity(value: int) -> None:
+    # A real law connecting Pointed and Extractable when a type
+    # implements both: extract . point == id. Only Identity does,
+    # of the six Extractable types in this round -- see the spec's
+    # Testing strategy section correction note.
+    assert Identity.point(value).extract() == value
