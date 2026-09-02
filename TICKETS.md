@@ -456,3 +456,37 @@ Documentation: short addition to `docs/HOWTO.md`'s existing `Const` section cove
 **Depends on:** T-055
 
 Add a new `@overload` (`S` bound to `Semigroup`) to the existing free `liftA2` function in `applicative.py`: `liftA2(f: Callable[[A, B], C], fa: Const[S, A], fb: Const[S, B]) -> Const[S, C]`, dispatching to `Const(value=fa.value.mappend(fb.value))`. Example-based tests plus a precision (`reveal_type`) probe, deleted after use. Short `docs/HOWTO.md` addition alongside T-055's.
+
+## Maybe
+
+Spec: [`docs/specs/maybe.md`](docs/specs/maybe.md)
+
+### T-057: `Maybe`/`Just`/`Nothing` core type
+
+**Status:** Closed
+
+New file `src/ekans/maybe.py`: abstract `Maybe(Monad[A], Generic[A])` plus concrete `Just[A]`/`Nothing[A]`. Per the spec's key finding: `Maybe`'s own abstract `fmap`/`ap`/`bind` re-declarations return `Union[Just[B], Nothing[B]]`, not the abstract `Maybe[B]` -- required for real `match`/`case` exhaustiveness and field narrowing under `mypy --strict` (verified in Phase 1: the naive `Maybe[B]`-returning version produces a genuine `Missing return statement` error on an exhaustive two-case `match`, plus `Any`-typed narrowing inside `case Just(value=v):`). `point` is defined once, concretely, directly on `Maybe` (not abstract, not re-implemented per variant) -- `Maybe.point(value) = Just(value=value)`, matching Haskell's `pure = Just`, with no variant-specific behavior. `Just`/`Nothing` both frozen dataclasses, type-safe `__eq__`/`__hash__` per the Equality convention. `Nothing` is Ekans' first genuinely zero-field concrete type. No `Extractable` instance -- excluded on the merits (no total `extract() -> A` possible for `Nothing`), matching `Reader`/`Star`'s existing exclusion style.
+
+Add `Maybe`/`Just`/`Nothing` overloads to the existing free `fmap` (`functor.py`), `ap` (`apply.py`), `bind` (`bind.py`) functions.
+
+Tests (`tests/test_maybe.py`): construction, equality/hash (including cross-variant inequality), immutability. A `match`/`case` exhaustiveness demonstration with no fallback `case _:`, verified it type-checks under `mypy tests --strict`. Law tests via the existing helpers (`assert_functor_laws`, `assert_apply_law`, `assert_applicative_law`, `assert_bind_law`, `assert_monad_law`) called against `Just` -- no new law infrastructure needed, `Maybe` is a genuinely nominal instance of the whole hierarchy. Explicit, separate example-based tests confirming `Nothing.fmap`/`.ap`/`.bind` never call their argument function (via a call-log/side-effect check) -- per the spec's Cross-Product audit, the standard laws hold *vacuously* for `Nothing` and don't actually exercise this guarantee. A documented example showing bare `Nothing()` decaying to `Nothing[Never]` without context, contrasted with a bracketed/contextual construction resolving precisely.
+
+Documentation: new `docs/HOWTO.md` `Maybe` section covering the sealed shape, a runnable `match`/`case` example, the `Union[Just[B], Nothing[B]]`-vs-`Maybe[B]` finding stated plainly, and the bare-`Nothing()` gap with its mitigation.
+
+### T-058: `Maybe`'s conditional `Semigroup`/`Monoid`
+
+**Status:** Open
+**Depends on:** T-057
+
+Add a `Maybe` overload to the existing shared free `mappend` (`semigroup.py`), `S` bound to `Semigroup`: `Nothing <> x = x`, `x <> Nothing = x`, `Just a <> Just b = Just (a.mappend(b))`, via `match`/`case`. Add a `mempty(value_type: Type[S]) -> Maybe[S]` classmethod directly on `Maybe`, alongside `point` -- per the spec's Design section, `S` is bound to `Semigroup`, **not** `Monoid` (a real, verified difference from `Identity`/`Const`/`Reader`'s `mempty`): `Maybe.mempty` never calls `value_type.mempty()` at all, since `Nothing()` is unconditionally a valid identity regardless of `A`; `value_type` exists purely to pin the static type parameter.
+
+Tests: `mappend`/`mempty` example and property tests (associativity, left/right identity) mirroring `Identity`/`Const`/`Reader`'s existing shape, plus a test using a type that's a `Semigroup` but deliberately *not* a `Monoid`, confirming `Maybe.mempty` still works with it (the concrete verification of the spec's central `Semigroup`-not-`Monoid` claim).
+
+Documentation: `docs/HOWTO.md` addition to the `Maybe` section explaining the conditional instance and why `mempty` only needs `Semigroup`.
+
+### T-059: Real `Maybe`-based short-circuit regression test for `@do`
+
+**Status:** Open
+**Depends on:** T-057
+
+Per `docs/specs/do.md`'s own flagged follow-up: add one additional test to `tests/test_do.py` using real `Just`/`Nothing` (not the existing local `_Just`/`_Nothing` double, which stays -- the do-notation guarantee is generic over any `Monad`, not `Maybe`-specific) confirming a `@do` block halts at the first `Nothing` and never resumes past it. Short addition to `docs/HOWTO.md`'s existing `@do` section noting the real example now exists.

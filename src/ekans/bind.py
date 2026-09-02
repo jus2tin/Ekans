@@ -1,12 +1,13 @@
 """Bind: chaining box-producing functions together."""
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Callable, Generic, TypeVar, overload
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar, Union, overload
 
 from ekans.apply import Apply
 
 if TYPE_CHECKING:
     from ekans.identity import Identity
+    from ekans.maybe import Just, Maybe, Nothing
     from ekans.reader import Reader
 
 A_co = TypeVar("A_co", covariant=True)
@@ -46,6 +47,16 @@ class Bind(Apply[A_co], Generic[A_co]):
 def bind(f: Callable[[A], "Identity[B]"], x: "Identity[A]") -> "Identity[B]": ...
 @overload
 def bind(f: Callable[[A], "Reader[R, B]"], x: "Reader[R, A]") -> "Reader[R, B]": ...
+@overload  # noqa: E302
+def bind(
+    f: Callable[[A], "Maybe[B]"], x: "Just[A]"
+) -> "Union[Just[B], Nothing[B]]": ...
+@overload
+def bind(f: Callable[[A], "Maybe[B]"], x: "Nothing[A]") -> "Nothing[B]": ...
+@overload  # noqa: E302
+def bind(
+    f: Callable[[A], "Maybe[B]"], x: "Maybe[A]"
+) -> "Union[Just[B], Nothing[B]]": ...
 @overload
 def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]": ...
 def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]":  # noqa: E302

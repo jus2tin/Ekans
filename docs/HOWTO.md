@@ -26,6 +26,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Bind: chaining boxes without nesting them](#bind-chaining-boxes-without-nesting-them)
 - [Monad: Applicative and Bind, evolved](#monad-applicative-and-bind-evolved)
 - [do: turning bind chains into procedural-looking code](#do-turning-bind-chains-into-procedural-looking-code)
+- [Maybe: a value that might not be there](#maybe-a-value-that-might-not-be-there)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -862,6 +863,45 @@ with_env().run(10)  # 31 -- a = 11, b = 20, a + b = 31
 ```
 
 **Short-circuiting comes for free.** `@do` never inspects what it yields — it just calls `.bind()` on it and lets that `Monad`'s own `bind` decide whether to keep going. A `Monad` that short-circuits (a future `Maybe`'s `Nothing`, an `Either`'s `Left`) skips calling the rest of the do-block automatically, the same way it would in a manual bind chain — there's no special-casing for this in `@do` itself, and none was needed. Ekans doesn't ship a `Maybe`/`Either` yet, so there's nothing to demo this against directly today, but the guarantee is already in place for whenever one lands.
+
+## Maybe: a value that might not be there
+
+Every box so far always holds something. `Maybe[A]` is the first one that might not: it's either `Just(value)`, holding a real `A`, or `Nothing`, holding nothing at all. Matches Haskell's `data Maybe a = Nothing | Just a` directly:
+
+```python
+from ekans.maybe import Just, Maybe, Nothing
+
+Just(value=5)          # Just(value=5)
+n: Maybe[int] = Nothing()
+n                       # Nothing()
+```
+
+`Maybe` itself is abstract — you always construct a `Just` or a `Nothing`, never a bare `Maybe`. It's a `Monad` from the moment it exists: `fmap`, `point` (`Maybe.point(5)` builds `Just(value=5)`, matching Haskell's `pure = Just`), `ap`, and `bind` all work exactly the way they do on `Identity`, except every one of them short-circuits the instant a `Nothing` shows up anywhere in the chain:
+
+```python
+Just(value=5).fmap(str)              # Just(value='5')
+Nothing().fmap(str)                  # Nothing() -- str is never called
+
+Just(value=5).bind(lambda a: Just(value=a + 1))   # Just(value=6)
+Nothing().bind(lambda a: Just(value=a + 1))       # Nothing() -- the lambda is never called
+```
+
+That "never called" part isn't just a side note — it's the actual guarantee `Nothing` exists to make. `Nothing.fmap`/`.ap`/`.bind` don't look at their argument at all before returning `Nothing`; there's nothing to hand it anyway.
+
+**The real reason `Maybe` gets two classes instead of one.** `Just`/`Nothing` being separate, real dataclasses (not one class hiding an `Optional[A]` internally) is what makes this work with Python's native `match`/`case`:
+
+```python
+def describe(m: "Just[int] | Nothing[int]") -> str:
+    match m:
+        case Just(value=v):
+            return f"got {v}"
+        case Nothing():
+            return "nothing"
+```
+
+**A wrinkle worth knowing about, found the hard way.** Write that same function typed against the *abstract* `Maybe[int]` instead of the `Just[int] | Nothing[int]` union above, and mypy stops being able to prove the `match` covers every case — you'd get a real `Missing return statement` error, and the `value=v` binding inside `case Just(value=v):` would quietly type as `Any` instead of `int`. mypy can prove a `match` is exhaustive over a `Union` (a closed, enumerable type) but not over an abstract base class, even one with only two subclasses — Python has no built-in notion of a "sealed" class hierarchy the way some other languages do. That's exactly why `Maybe`'s own `fmap`/`ap`/`bind`/`point` are declared to return `Just[B] | Nothing[B]` rather than the plain `Maybe[B]` you might expect (matching every other type in this library) — it's what lets `match`/`case` work precisely, everywhere, including on the result of a chained `.bind()` call on a concrete `Just`, not only on values you've typed as the union yourself.
+
+**One more real gap, worth constructing `Nothing` carefully around.** `Nothing` takes no arguments — there's nothing to hold — but that means a bare `Nothing()` with no surrounding context has nothing to infer its type parameter *from* either. Checked directly: `Nothing()` alone resolves to `Nothing[Never]`, not the `Nothing[A]` you'd want. Either bracket it explicitly (`Nothing[int]()`) or let an annotated target supply the context (`n: Maybe[int] = Nothing()`, as above) — both resolve precisely. Same category of gap as `Sum`/`Product`/`Ap`'s `mempty()` needing an explicit type argument (see `Semigroup`/`Monoid` above) — Python's generics are erased at runtime, so nothing about a bare, argument-less `Nothing()` can tell mypy what it's a `Nothing` *of*.
 
 ## Coming soon
 
