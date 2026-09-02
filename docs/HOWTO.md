@@ -297,6 +297,8 @@ If the environment leaking into both sides sounds obvious, it's worth checking: 
 
 Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, same as `Identity`.
 
+**Conditionally a `Semigroup`, pointwise this time.** Same story as `Identity` and `Const` above — `Reader[R, A]` can `mappend` two of itself precisely when `A` can, and never nominally inherits `Semigroup` for the same reason. The combination happens *pointwise*: run both sides against the same environment, then `mappend` the two results — `mappend(f, g).run(r) == f.run(r).mappend(g.run(r))`. It shares the same three-way `ekans.semigroup.mappend` overload as `Identity`/`Const`. See the `Semigroup` section below for a real, runnable example.
+
 ## Apply: when the function is also in a box
 
 `fmap` covers a lot of ground, but it has one blind spot: the function you're mapping with always has to be a plain, ordinary function sitting outside any box. What happens when the function itself is *also* stuck inside a box? That's `Apply`.
@@ -438,15 +440,20 @@ Addition satisfies this (`(1 + 2) + 3 == 1 + (2 + 3)`); subtraction doesn't (`(1
 
 **A first: no override boilerplate at all.** Every other type class here has needed its concrete overrides to narrow a return type away from something loose (`Functor[B]`, `Apply[B]`, ...), usually paired with a `# type: ignore[override]` explaining why. `Semigroup.mappend` sidesteps this entirely with `typing.Self`: the abstract method is declared `def mappend(self, other: Self) -> Self`, and `Self` already means "exactly whatever concrete class this is," precisely, for every subclass, with zero extra typing work.
 
-**Why there's no `Identity`/`Const`/`Reader` class instance here.** Unlike `Functor` or `Apply`, `Semigroup` isn't unconditionally true of a container just because it holds *something* — `Identity[A]` only knows how to `mappend` when `A` itself does (there's no way to combine two `Identity[str]`s by squishing their `str`s together with a method `str` doesn't have). Haskell expresses this as a *constrained instance* (`instance Semigroup a => Semigroup (Identity a)`); Python has no direct equivalent at the class level. Ekans' answer: `Identity` and `Const` never nominally inherit `Semigroup` at all (`Reader` will get the same treatment once it lands). Instead, both show up purely as `ekans.semigroup.mappend`, an overloaded free function bounded by a `TypeVar("S", bound=Semigroup)`:
+**Why there's no `Identity`/`Const`/`Reader` class instance here.** Unlike `Functor` or `Apply`, `Semigroup` isn't unconditionally true of a container just because it holds *something* — `Identity[A]` only knows how to `mappend` when `A` itself does (there's no way to combine two `Identity[str]`s by squishing their `str`s together with a method `str` doesn't have). Haskell expresses this as a *constrained instance* (`instance Semigroup a => Semigroup (Identity a)`); Python has no direct equivalent at the class level. Ekans' answer: `Identity`, `Const`, and `Reader` never nominally inherit `Semigroup` at all. Instead, all three show up purely as `ekans.semigroup.mappend`, a single overloaded free function bounded by a `TypeVar("S", bound=Semigroup)`:
 
 ```python
 from ekans.const import Const
 from ekans.identity import Identity
+from ekans.reader import Reader
 from ekans.semigroup import mappend
 
 mappend(Identity(value=Box(1)), Identity(value=Box(2)))  # Identity(value=Box(value=3))
 mappend(Const(value=Box(1)), Const(value=Box(2)))        # Const(value=Box(value=3))
+
+f: Reader[str, Box] = Reader(run=lambda env: Box(1))
+g: Reader[str, Box] = Reader(run=lambda env: Box(2))
+mappend(f, g).run("anything")  # Box(value=3) -- both sides ran against the same environment
 
 mappend(Identity(value="a"), Identity(value="b"))
 # error: Value of type variable "S" of "mappend" cannot be "str"  [type-var]

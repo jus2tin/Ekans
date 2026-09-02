@@ -189,7 +189,7 @@ Add the `Const[S, A] -> Const[S, A] -> Const[S, A]` overload to the free `mappen
 
 ### T-024: `Reader[R, A]` `mappend` support
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-022
 
 Add the `Reader[R, S] -> Reader[R, S] -> Reader[R, S]` overload to the free `mappend` function: pointwise combination, `(f mappend g)(r) = f(r) mappend g(r)`, per the spec's Design section. Law test via the T-021 helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s Functor/Apply law tests). Update `docs/HOWTO.md`'s `Reader` section with a short `mappend` addition.
