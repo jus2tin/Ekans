@@ -530,7 +530,7 @@ Documentation: new `docs/HOWTO.md` `Tuple2` section -- the nominal-`Functor`-but
 
 ### T-063: `Tuple2`'s own pointwise `Semigroup`/`Monoid`
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-062
 
 Add a `Tuple2` overload to the existing shared free `mappend` (`semigroup.py`) needing **two independent bounds simultaneously** (`SA`/`SB`, both bound `Semigroup`) -- a genuinely new pattern, not yet built anywhere in this codebase: `mappend(a, b) = Tuple2(first=a.first.mappend(b.first), second=a.second.mappend(b.second))`. Add a `mempty(a_type: Type[MA], b_type: Type[MB]) -> Tuple2[MA, MB]` classmethod directly on `Tuple2`, alongside `point` (`MA`/`MB` independently bound `Monoid`).

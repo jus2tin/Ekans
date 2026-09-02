@@ -13,6 +13,8 @@ A = TypeVar("A")
 B = TypeVar("B")
 C = TypeVar("C")
 S = TypeVar("S", bound="Monoid")
+MA = TypeVar("MA", bound="Monoid")
+MB = TypeVar("MB", bound="Monoid")
 
 
 @dataclass(frozen=True, eq=False)
@@ -92,3 +94,20 @@ class Tuple2(Functor[B], Extractable[B], Generic[A, B]):
             `Tuple2(first=value_type.mempty(), second=value)`.
         """
         return Tuple2(first=value_type.mempty(), second=value)
+
+    @classmethod
+    def mempty(cls, a_type: Type[MA], b_type: Type[MB]) -> "Tuple2[MA, MB]":
+        """Construct the identity element, pointwise.
+
+        Needs both `a_type` and `b_type` to independently satisfy
+        `Monoid` -- the first pattern in this codebase requiring two
+        independent bounds at once rather than one.
+
+        Args:
+            a_type: The concrete Monoid type for `first`.
+            b_type: The concrete Monoid type for `second`.
+
+        Returns:
+            `Tuple2(first=a_type.mempty(), second=b_type.mempty())`.
+        """
+        return Tuple2(first=a_type.mempty(), second=b_type.mempty())

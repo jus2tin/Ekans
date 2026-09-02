@@ -13,7 +13,7 @@ from ekans.extractable import Extractable
 from ekans.functor import fmap
 from ekans.monad import Monad
 from ekans.monoid import Monoid
-from ekans.semigroup import Semigroup
+from ekans.semigroup import Semigroup, mappend
 from ekans.tuple2 import Tuple2
 
 
@@ -243,3 +243,62 @@ def test_applicative_composition_law(
     rhs = ap(v, w)
     rhs = ap(u, rhs)
     assert lhs == rhs
+
+
+def test_mappend_combines_both_slots_pointwise() -> None:
+    a: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=1), second=_Box(value=10))
+    b: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=2), second=_Box(value=20))
+    assert mappend(a, b) == Tuple2(first=_Box(value=3), second=_Box(value=30))
+
+
+@given(st.integers(), st.integers(), st.integers())
+def test_free_mappend_is_associative(a: int, b: int, c: int) -> None:
+    # Tuple2 doesn't nominally implement Semigroup -- same non-nominal
+    # reasoning as every other conditional instance in this codebase.
+    x: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=a), second=_Box(value=a))
+    y: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=b), second=_Box(value=b))
+    z: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=c), second=_Box(value=c))
+    assert mappend(mappend(x, y), z) == mappend(x, mappend(y, z))
+
+
+def test_mempty_constructs_the_identity_elementwise() -> None:
+    a: Tuple2[_MonoidBox, _MonoidBox] = Tuple2.mempty(_MonoidBox, _MonoidBox)
+    assert a == Tuple2(first=_MonoidBox(value=0), second=_MonoidBox(value=0))
+
+
+def test_is_not_a_monoid() -> None:
+    # Tuple2 can't nominally inherit Monoid -- same non-nominal
+    # reasoning as its conditional Semigroup support.
+    assert not isinstance(Tuple2(first=1, second=2), Monoid)
+
+
+def test_mempty_is_the_left_identity() -> None:
+    x: Tuple2[_MonoidBox, _MonoidBox] = Tuple2(
+        first=_MonoidBox(value=5), second=_MonoidBox(value=6)
+    )
+    a: Tuple2[_MonoidBox, _MonoidBox] = Tuple2.mempty(_MonoidBox, _MonoidBox)
+    assert mappend(a, x) == x
+
+
+def test_mempty_is_the_right_identity() -> None:
+    x: Tuple2[_MonoidBox, _MonoidBox] = Tuple2(
+        first=_MonoidBox(value=5), second=_MonoidBox(value=6)
+    )
+    a: Tuple2[_MonoidBox, _MonoidBox] = Tuple2.mempty(_MonoidBox, _MonoidBox)
+    assert mappend(x, a) == x
+
+
+def test_mempty_rejects_a_partial_monoid_pair_at_runtime() -> None:
+    with pytest.raises(AttributeError):
+        # No overload admits a Tuple2 mempty call where only one side
+        # is a real Monoid -- mypy correctly rejects this at the call
+        # site ([type-var]), so the ignore comment below deliberately
+        # bypasses that to exercise the runtime failure: plain `_Box`
+        # (a Semigroup, not a Monoid) has no `.mempty()` classmethod.
+        Tuple2.mempty(_Box, _MonoidBox)  # type: ignore[type-var]
+
+
+def test_mappend_extract_homomorphism() -> None:
+    x: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=2), second=_Box(value=3))
+    y: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=4), second=_Box(value=5))
+    assert mappend(x, y).extract() == x.extract().mappend(y.extract())
