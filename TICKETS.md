@@ -410,7 +410,7 @@ Add `src/ekans/monad.py` with `Monad[A_co](Applicative[A_co], Bind[A_co], Generi
 
 ### T-052: Identity implements Monad
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-050, T-051
 
 Retrofit `Identity[A]`'s base classes to `Monad[A]` + `Extractable[A]` only, dropping the now-redundant explicit `Applicative[A]`/`Bind[A]` (MRO conflict otherwise -- same lesson as T-017/T-019). No new methods -- everything already implemented. Law test via T-051's helper. Update `docs/HOWTO.md`'s `Identity` section with a short note.
