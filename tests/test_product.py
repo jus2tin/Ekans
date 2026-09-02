@@ -1,9 +1,12 @@
+from dataclasses import dataclass
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
 from ekans.extractable import Extractable
+from ekans.monoid import Monoid
 from ekans.product import Product
 from ekans.semigroup import Semigroup
 
@@ -72,3 +75,52 @@ def test_mappend_extract_distributes_over_multiplication(a: int, b: int) -> None
     # Semigroup/Extractable homomorphism, operator form -- same
     # reasoning as Sum's. See docs/specs/invariance-audit.md.
     assert Product(value=a).mappend(Product(value=b)).extract() == a * b
+
+
+def test_mempty_constructs_the_multiplicative_identity_for_int() -> None:
+    assert Product.mempty(int) == Product(value=1)
+
+
+def test_mempty_constructs_the_multiplicative_identity_for_float() -> None:
+    assert Product.mempty(float) == Product(value=1.0)
+
+
+@dataclass(frozen=True, eq=False)
+class _OneableBox:
+    n: int
+
+    def __mul__(self, other: "_OneableBox") -> "_OneableBox":
+        return _OneableBox(n=self.n * other.n)
+
+    @classmethod
+    def one(cls) -> "_OneableBox":
+        return _OneableBox(n=1)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _OneableBox) and self.n == other.n
+
+
+def test_mempty_constructs_the_multiplicative_identity_for_a_custom_type() -> None:
+    assert Product.mempty(_OneableBox) == Product(value=_OneableBox(n=1))
+
+
+def test_is_not_a_monoid() -> None:
+    # Product can't nominally inherit Monoid -- see the spec's Design
+    # section. mempty still works via the explicit Type[X] argument.
+    assert not isinstance(Product(value=1), Monoid)
+
+
+@given(st.integers(min_value=-1000, max_value=1000))
+def test_mempty_is_the_left_identity(a: int) -> None:
+    assert Product.mempty(int).mappend(Product(value=a)) == Product(value=a)
+
+
+@given(st.integers(min_value=-1000, max_value=1000))
+def test_mempty_is_the_right_identity(a: int) -> None:
+    assert Product(value=a).mappend(Product.mempty(int)) == Product(value=a)
+
+
+def test_mempty_extract_is_the_multiplicative_identity() -> None:
+    # Monoid/Extractable, non-nominal form -- per the spec's
+    # Cross-Product audit section.
+    assert Product.mempty(int).extract() == 1

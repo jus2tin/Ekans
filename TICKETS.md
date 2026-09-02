@@ -321,7 +321,7 @@ Add `Sum.mempty(cls, value_type: Type[X])` per the spec's Design section: a new 
 
 ### T-041: Product's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Same shape as T-040 with a `SupportsOne` protocol (extending `SupportsMul`) and an `int`/`float` registry mapping to `1`/`1.0`. Update `docs/HOWTO.md`'s `Product` section.

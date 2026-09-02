@@ -540,6 +540,8 @@ Wrapping the number in `Product` rather than `Sum` says which combining operatio
 
 `Product` is also `Extractable`: `Product(value=6).extract()` returns `6`, same shape as `Sum`.
 
+`Product.mempty(int)` gives `Product(value=1)`, `Product.mempty(float)` gives `Product(value=1.0)` — the multiplicative identity, same explicit-`Type[X]` shape as `Sum.mempty` and for the same reason (see the `Monoid` section below). Custom types need a `.one()` classmethod alongside `__mul__`.
+
 ## All: everyone has to agree
 
 `Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:
