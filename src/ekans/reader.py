@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 
-from ekans.functor import Functor
+from ekans.apply import Apply
 from ekans.pointed import Pointed
 
 A = TypeVar("A")
@@ -34,7 +34,7 @@ def const(value: A) -> Callable[[C], A]:
 
 
 @dataclass(frozen=True, eq=False)
-class Reader(Functor[A], Pointed[A], Generic[R, A]):
+class Reader(Pointed[A], Apply[A], Generic[R, A]):
     """The function arrow `(-> r)`: wraps a function from an environment to a result.
 
     Deliberately has no `__eq__`/`__hash__` override, unlike Identity/
@@ -75,6 +75,21 @@ class Reader(Functor[A], Pointed[A], Generic[R, A]):
             A new Reader whose `run` ignores its argument and returns `value`.
         """
         return Reader(run=const(value))
+
+    def ap(  # type: ignore[override]
+        self, f: "Reader[R, Callable[[A], B]]"
+    ) -> "Reader[R, B]":
+        """Apply the function wrapped in `f`, threading the same environment.
+
+        Args:
+            f: A Reader wrapping the function to apply.
+
+        Returns:
+            A new Reader whose `run` calls both `self.run` and `f.run`
+            with the same environment, then applies one result to the
+            other.
+        """
+        return Reader(run=lambda r: f.run(r)(self.run(r)))
 
     def __call__(self, r: R) -> A:
         """Delegate to `run`, so a Reader can be used like a plain function.

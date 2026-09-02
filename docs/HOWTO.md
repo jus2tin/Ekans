@@ -277,6 +277,19 @@ get_length("hello")  # 5 -- same as get_length.run("hello")
 
 That's the whole bridge back to plain Python: anywhere a `Callable[[R], A]` is expected — `map()`, composing with an ordinary function, whatever — a `Reader` can just be handed over directly, no `.run` required.
 
+`Reader` also implements `Apply` (see that section below): `.ap` threads the *same* environment into both the wrapped value and the wrapped function, not two independently-supplied ones —
+
+```python
+add_r: Reader[int, int] = Reader(run=lambda r: r)
+multiply_by_r: Reader[int, Callable[[int], int]] = Reader(run=lambda r: (lambda x: x * r))
+
+threaded = add_r.ap(multiply_by_r)
+threaded.run(3)  # 9  -- both sides saw r=3, not two different r's
+threaded.run(4)  # 16
+```
+
+If the environment leaking into both sides sounds obvious, it's worth checking: it would be just as easy to write an `ap` that accidentally used two *different* environments (say, by hardcoding one side), and the result would still type-check fine — the bug would only show up as wrong numbers at runtime. That's exactly why this got a behavioral test, not just a type-checked one.
+
 ## Apply: when the function is also in a box
 
 `fmap` covers a lot of ground, but it has one blind spot: the function you're mapping with always has to be a plain, ordinary function sitting outside any box. What happens when the function itself is *also* stuck inside a box? That's `Apply`.
@@ -315,7 +328,7 @@ number.ap(wrapped_str)   # Box(value='5')
 ap(wrapped_str, number)  # Box(value='5') -- same thing, free-function form
 ```
 
-Same convention as `fmap`: both the method and the free function put "the thing doing the transforming" first — `x.ap(f)` and `ap(f, x)`, matching `x.fmap(f)` and `fmap(f, x)`. `Box` here is a stand-in for illustration; `Identity` (see its section above) is the real, shipped example, and its `ap` is exactly this shape.
+Same convention as `fmap`: both the method and the free function put "the thing doing the transforming" first — `x.ap(f)` and `ap(f, x)`, matching `x.fmap(f)` and `fmap(f, x)`. `Box` here is a stand-in for illustration; `Identity` and `Reader` (see their sections above) are the real, shipped examples — `Reader`'s is the more interesting one, since its `ap` has to actually thread an environment through both sides rather than just unwrapping two boxes.
 
 **The law, and its honest limit.** `Apply` has exactly one law of its own, before `Applicative` adds more: applying wrapped functions one at a time, left to right, gives the same answer as composing them first and applying once —
 

@@ -144,7 +144,7 @@ Retrofit `Identity[A]`'s base classes to `Applicative[A]` only, dropping the now
 
 ### T-018: Reader implements Apply
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-012 (Apply ABC)
 
 Add `ap` to `Reader[R, A]`, threading the same environment value into both the wrapped function and the wrapped value — verified behavior, not just type, per the spec's Design section. Add its overload to the free `ap` function. Law test via `apply_laws.assert_apply_law` with the environment-sampling `equal` comparator. Update `docs/HOWTO.md`'s `Reader` section with a real `ap` example.
