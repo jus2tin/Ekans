@@ -268,7 +268,7 @@ Retrofit `Product[M]` to inherit `Extractable[M]`, `extract` returns `self.value
 
 ### T-034: All implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `All` to inherit `Extractable[bool]`, `extract` returns `self.value`. Example test. Update `docs/HOWTO.md`'s `All` section with a short `extract` addition.

@@ -3,6 +3,7 @@ from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
 from ekans.all import All
+from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
 
 
@@ -47,3 +48,11 @@ def test_is_a_semigroup() -> None:
 
 def test_satisfies_the_semigroup_law() -> None:
     assert_semigroup_law(All, st.booleans())
+
+
+def test_extract_returns_the_wrapped_value() -> None:
+    assert All(value=True).extract() is True
+
+
+def test_is_extractable() -> None:
+    assert isinstance(All(value=True), Extractable)
