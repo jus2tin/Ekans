@@ -15,6 +15,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Pointed: getting a value into a box](#pointed-getting-a-value-into-a-box)
 - [Reader: a box that's actually a function](#reader-a-box-thats-actually-a-function)
 - [Apply: when the function is also in a box](#apply-when-the-function-is-also-in-a-box)
+- [Applicative: Pointed and Apply, together](#applicative-pointed-and-apply-together)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -324,11 +325,59 @@ w.ap(v.ap(u.fmap(compose))) == w.ap(v).ap(u)
 
 Worth knowing plainly: this law alone doesn't catch *every* bug. An `ap` that quietly ignores the function it's given and just hands back `self` unchanged satisfies this law perfectly — both sides collapse to the same "untouched" answer no matter what `u`, `v`, or `w` actually are. It took writing a genuinely wrong `ap` (one that double-applies the function) to actually see the law fail; the "ignore the argument" bug sailed straight through. That's not a flaw in the test — it's a real, inherent limit of associativity by itself, and it's exactly why `ap` still gets an ordinary example-based test (`box.ap(wrapped) == expected`) alongside the property test, not instead of it.
 
+## Applicative: Pointed and Apply, together
+
+`Applicative` doesn't add anything new — it's just the name for "has both `Pointed` and `Apply`." No new method, no new behavior. What it buys you is a guarantee: `point`, `ap`, and `fmap` actually agree with each other, expressed as four laws.
+
+```python
+from dataclasses import dataclass
+from typing import Callable, Generic, TypeVar
+
+from ekans.applicative import Applicative
+
+A = TypeVar("A")
+B = TypeVar("B")
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Applicative[A], Generic[A]):
+    value: A
+
+    def fmap(self, f: Callable[[A], B]) -> "Box[B]":
+        return Box(value=f(self.value))
+
+    @classmethod
+    def point(cls, value: A) -> "Box[A]":
+        return Box(value=value)
+
+    def ap(self, f: "Box[Callable[[A], B]]") -> "Box[B]":
+        return Box(value=f.value(self.value))
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and bool(self.value == other.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+Box.point(5).ap(Box.point(str))  # Box(value='5')
+```
+
+Notice the class declaration: just `Applicative[A]`, nothing else — no separate `Pointed[A]`/`Apply[A]`/`Functor[A]` in the bases. That's on purpose, not a simplification: since `Applicative` already inherits both, listing them again creates a genuinely broken class (Python can't work out a consistent method resolution order, and raises a `TypeError` at class *definition* time, not at some later call). Every concrete `Applicative` in this package follows the same rule.
+
+**The four laws.** These are what make `point`, `ap`, and `fmap` a single coherent system instead of three unrelated methods that happen to share a class:
+
+1. **Identity** — applying a "do-nothing" wrapped function changes nothing: `v.ap(Box.point(lambda a: a)) == v`.
+2. **Homomorphism** — wrapping a value and a function separately, then applying, is the same as applying first and wrapping the result: `Box.point(value).ap(Box.point(f)) == Box.point(f(value))`.
+3. **Interchange** — it doesn't matter which side "starts wrapped": `Box.point(value).ap(u) == u.ap(Box.point(lambda fn: fn(value)))`.
+4. **Composition** — the same associativity law `Apply` already has on its own (see that section above), restated using `point` for the wrapped composition operator instead of assuming it: `w.ap(v.ap(u.fmap(compose))) == w.ap(v).ap(u)`.
+
+That last one is worth being honest about: it's the identical formula to `Apply`'s own associativity law — testing it again here isn't finding new bugs so much as confirming `point` doesn't quietly break something `ap` alone already got right.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
 
-- **Applicative** — `Pointed` and `Apply` shake hands and agree to work together.
 - **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.
 - **Semigroup** — anything you know how to squish two of together into one.

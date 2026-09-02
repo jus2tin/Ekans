@@ -122,7 +122,7 @@ Spec: [`docs/specs/applicative.md`](docs/specs/applicative.md)
 
 ### T-015: Applicative ABC
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/applicative.py` with `Applicative[A_co](Pointed[A_co], Apply[A_co], Generic[A_co])` per the spec: no new abstract methods, pure composition. Includes the real `docs/HOWTO.md` `Applicative` section, replacing the current stub.
 
