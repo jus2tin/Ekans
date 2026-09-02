@@ -4,13 +4,17 @@ from abc import ABC, abstractmethod
 from typing import (
     Callable,
     Generic,
+    Iterable,
     Iterator,
+    List,
     Protocol,
     Type,
     TypeVar,
+    Union,
     runtime_checkable,
 )
 
+from ekans.maybe import Just, Nothing
 from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup
 
@@ -221,3 +225,204 @@ def fold1(xs: Foldable[S]) -> S:
     for item in items[1:]:
         acc = acc.mappend(item)
     return acc
+
+
+def toList(xs: Foldable[A]) -> List[A]:
+    """Materialize `xs` into a plain list.
+
+    Args:
+        xs: Anything iterable.
+
+    Returns:
+        Every element of `xs`, in order, as a `list`.
+    """
+    return list(xs)
+
+
+def null(xs: Foldable[A]) -> bool:
+    """Whether `xs` has no elements.
+
+    Args:
+        xs: Anything iterable.
+
+    Returns:
+        `True` if `xs` is empty.
+    """
+    for _ in xs:
+        return False
+    return True
+
+
+def length(xs: Foldable[A]) -> int:
+    """The number of elements in `xs`.
+
+    Args:
+        xs: Anything iterable.
+
+    Returns:
+        The element count. Uses `xs`'s own `FoldableABC.length`
+        override if present; otherwise counts via `__iter__`.
+    """
+    if isinstance(xs, FoldableABC):
+        try:
+            return xs.length()
+        except NotImplementedError:
+            pass
+    count = 0
+    for _ in xs:
+        count += 1
+    return count
+
+
+def concat(xs: "Foldable[Iterable[A]]") -> List[A]:
+    """Flatten a Foldable of iterables into one list.
+
+    Args:
+        xs: Anything iterable of iterables.
+
+    Returns:
+        Every element of every inner iterable, in order.
+    """
+    result: List[A] = []
+    for inner in xs:
+        result.extend(inner)
+    return result
+
+
+def concatMap(f: Callable[[A], Iterable[B]], xs: Foldable[A]) -> List[B]:
+    """Map each element to an iterable, then flatten the results.
+
+    Args:
+        f: Maps each element to an iterable.
+        xs: Anything iterable.
+
+    Returns:
+        Every element of every `f(x)`, in order.
+    """
+    result: List[B] = []
+    for item in xs:
+        result.extend(f(item))
+    return result
+
+
+def and_(xs: Foldable[bool]) -> bool:
+    """Whether every element is `True`.
+
+    Named with a trailing underscore since `and` is a Python keyword
+    and can't be used as a function name at all -- matching the
+    stdlib `operator` module's own convention for the same problem
+    (`operator.and_`).
+
+    Args:
+        xs: Anything iterable of `bool`.
+
+    Returns:
+        `True` if every element is `True` (vacuously `True` if `xs`
+        is empty).
+    """
+    for item in xs:
+        if not item:
+            return False
+    return True
+
+
+def or_(xs: Foldable[bool]) -> bool:
+    """Whether any element is `True`.
+
+    Args:
+        xs: Anything iterable of `bool`.
+
+    Returns:
+        `True` if at least one element is `True` (`False` if `xs` is
+        empty).
+    """
+    for item in xs:
+        if item:
+            return True
+    return False
+
+
+def any(predicate: Callable[[A], bool], xs: Foldable[A]) -> bool:
+    """Whether `predicate` holds for at least one element.
+
+    Short-circuits: stops at the first match, never scans the rest.
+
+    Args:
+        predicate: The condition to test each element against.
+        xs: Anything iterable.
+
+    Returns:
+        `True` if `predicate` holds for at least one element.
+    """
+    for item in xs:
+        if predicate(item):
+            return True
+    return False
+
+
+def all(predicate: Callable[[A], bool], xs: Foldable[A]) -> bool:
+    """Whether `predicate` holds for every element.
+
+    Short-circuits: stops at the first failure, never scans the rest.
+
+    Args:
+        predicate: The condition to test each element against.
+        xs: Anything iterable.
+
+    Returns:
+        `True` if `predicate` holds for every element.
+    """
+    for item in xs:
+        if not predicate(item):
+            return False
+    return True
+
+
+def elem(x: A, xs: Foldable[A]) -> bool:
+    """Whether `x` is in `xs`, via `==`. Short-circuits.
+
+    Args:
+        x: The value to look for.
+        xs: Anything iterable.
+
+    Returns:
+        `True` if any element of `xs` equals `x`.
+    """
+    for item in xs:
+        if item == x:
+            return True
+    return False
+
+
+def notElem(x: A, xs: Foldable[A]) -> bool:
+    """The negation of `elem`. Short-circuits.
+
+    Args:
+        x: The value to look for.
+        xs: Anything iterable.
+
+    Returns:
+        `True` if no element of `xs` equals `x`.
+    """
+    return not elem(x, xs)
+
+
+def find(
+    predicate: Callable[[A], bool], xs: Foldable[A]
+) -> "Union[Just[A], Nothing[A]]":
+    """The first element satisfying `predicate`, wrapped in `Maybe`.
+
+    Matches Haskell's own `find :: (a -> Bool) -> t a -> Maybe a`
+    signature directly. Short-circuits: stops at the first match.
+
+    Args:
+        predicate: The condition to test each element against.
+        xs: Anything iterable.
+
+    Returns:
+        `Just` the first matching element, or `Nothing` if none match.
+    """
+    for item in xs:
+        if predicate(item):
+            return Just(value=item)
+    return Nothing()

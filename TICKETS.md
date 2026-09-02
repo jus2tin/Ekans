@@ -557,7 +557,7 @@ Documentation: new `docs/HOWTO.md` Part 3 section (Foldable sits outside both th
 
 ### T-065: List-shape, boolean, and search derived functions
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-064
 
 Add to `src/ekans/foldable.py`: `toList(xs)`, `null(xs)`, `length(xs)` (using `FoldableABC`'s override where present), `concat(xs)` (`Foldable[Iterable[A]] -> List[A]`), `concatMap(f, xs)`. `and_(xs)`/`or_(xs)` (named with a trailing underscore per review -- `and`/`or` are Python keywords, can't be spelled that way at all; matches the stdlib `operator` module's own convention for the identical problem). `any(predicate, xs)`, `all(predicate, xs)`, `elem(x, xs)`, `notElem(x, xs)` -- kept at their exact Haskell/Python names per review (unlike `map`/`fmap`, no real forced collision here; `Sum`/`Product` already exist as distinct capitalized names). `find(predicate, xs) -> Union[Just[A], Nothing[A]]` -- Ekans's own `Maybe`, matching Haskell's own `find :: (a -> Bool) -> t a -> Maybe a` signature directly, verified precise via `reveal_type` and short-circuiting verified via a call-log double.

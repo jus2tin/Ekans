@@ -1135,6 +1135,47 @@ foldr(lambda a, b: a + b, 0, FastList([1, 2, 3]))  # 6 -- uses FastList's own fo
 
 Scoped deliberately to just two override points — `foldr` and `length` — not one per derived function. Everything else in this module is defined in terms of `foldr` (or `__iter__` directly), so a type overriding `foldr` gets the benefit everywhere that builds on it, automatically. `length`/`null` get their own hook for the same reason CLAUDE.md's own design notes called out before any of this was built: a type that already tracks its own size shouldn't have to walk itself just to answer a question it already knows.
 
+**The everyday shape-and-search functions.** `toList`/`null`/`length` need no introduction; `concat`/`concatMap` flatten a `Foldable` of iterables (or map-then-flatten) into a plain list:
+
+```python
+from ekans.foldable import concat, concatMap, length, null, toList
+
+toList((1, 2, 3))                      # [1, 2, 3]
+null([])                               # True
+length([1, 2, 3])                      # 3
+concat([[1, 2], [3], [4, 5]])          # [1, 2, 3, 4, 5]
+concatMap(lambda a: [a, a], [1, 2, 3]) # [1, 1, 2, 2, 3, 3]
+```
+
+**`and_`/`or_`, and why the trailing underscore isn't a style choice.** Haskell's `Data.Foldable` has `and`/`or :: t Bool -> Bool`. Python's `and`/`or` are keywords — reserved words in the grammar itself, not names that happen to be taken — so there is no way to spell a function `and` or `or` at all. `and_`/`or_` matches the exact convention the standard library's own `operator` module already uses for the identical problem (`operator.and_`, `operator.or_`), not an invented workaround:
+
+```python
+from ekans.foldable import and_, or_
+
+and_([True, True, False])   # False
+or_([False, False, True])   # True
+```
+
+`any`/`all`/`elem`/`notElem`/`find` keep their exact Haskell (and, for `any`/`all`, Python) names — unlike `map`, which got renamed to `fmap` project-wide over a real, unavoidable builtin collision, `sum`/`all`/`any` are conventionally imported qualified when the name is worth protecting, and every one of these already short-circuits, matching Haskell's own laziness-given behavior even though Python has none of that laziness to lean on — each is written as a direct loop with an early `return`, not built on top of the generic `foldr` (which materializes the whole input before doing anything, and would silently lose the short-circuit property if these were built on it):
+
+```python
+from ekans.foldable import all, any, elem, find, notElem
+
+any(lambda a: a > 3, [1, 2, 3, 4])     # True
+all(lambda a: a > 0, [1, 2, 3, 4])     # True
+elem(3, [1, 2, 3])                     # True
+notElem(10, [1, 2, 3])                 # True
+```
+
+**`find` returns Ekans's own `Maybe`, not `typing.Optional`.** This isn't a stretch to fit `Maybe` in somewhere — Haskell's own signature is already `find :: (a -> Bool) -> t a -> Maybe a`, so using Ekans's shipped `Maybe` here is just implementing the type the signature already names:
+
+```python
+from ekans.foldable import find
+
+find(lambda a: a > 2, [1, 2, 3, 4])    # Just(value=3)
+find(lambda a: a > 100, [1, 2, 3, 4])  # Nothing()
+```
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.

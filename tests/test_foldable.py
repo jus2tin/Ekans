@@ -10,6 +10,13 @@ from hypothesis import strategies as st
 from ekans.foldable import (
     Foldable,
     FoldableABC,
+    all,
+    and_,
+    any,
+    concat,
+    concatMap,
+    elem,
+    find,
     fold,
     fold1,
     foldl,
@@ -17,7 +24,13 @@ from ekans.foldable import (
     foldMap,
     foldr,
     foldr1,
+    length,
+    notElem,
+    null,
+    or_,
+    toList,
 )
+from ekans.maybe import Just, Nothing
 from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup
 
@@ -242,3 +255,158 @@ def test_fold1_combines_semigroup_values() -> None:
 def test_fold1_raises_on_empty() -> None:
     with pytest.raises(ValueError):
         fold1([])
+
+
+def test_toList_basic() -> None:
+    assert toList((1, 2, 3)) == [1, 2, 3]
+
+
+def test_toList_from_generator() -> None:
+    assert toList(x for x in range(3)) == [0, 1, 2]
+
+
+def test_null_true_for_empty() -> None:
+    assert null([]) is True
+
+
+def test_null_false_for_nonempty() -> None:
+    assert null([1]) is False
+
+
+def test_length_basic() -> None:
+    assert length([1, 2, 3, 4]) == 4
+
+
+@given(st.lists(st.integers(), max_size=50))
+def test_length_matches_python_len(xs: List[int]) -> None:
+    assert length(xs) == len(xs)
+
+
+def test_length_uses_foldable_abc_override() -> None:
+    calls: List[str] = []
+
+    @dataclass(frozen=True)
+    class _Counted(FoldableABC[int]):
+        items: List[int]
+
+        def __iter__(self) -> Iterator[int]:
+            calls.append("iter")
+            return iter(self.items)
+
+        def length(self) -> int:
+            calls.append("length-override")
+            return len(self.items)
+
+    counted = _Counted(items=[1, 2, 3])
+    assert length(counted) == 3
+    assert "length-override" in calls
+    assert "iter" not in calls
+
+
+def test_length_falls_back_to_generic_default_without_an_override() -> None:
+    @dataclass(frozen=True)
+    class _PlainFoldableABC(FoldableABC[int]):
+        items: List[int]
+
+        def __iter__(self) -> Iterator[int]:
+            return iter(self.items)
+
+    assert length(_PlainFoldableABC(items=[1, 2, 3])) == 3
+
+
+def test_concat_flattens_a_foldable_of_iterables() -> None:
+    assert concat([[1, 2], [3], [4, 5]]) == [1, 2, 3, 4, 5]
+
+
+def test_concatMap_maps_then_flattens() -> None:
+    assert concatMap(lambda a: [a, a], [1, 2, 3]) == [1, 1, 2, 2, 3, 3]
+
+
+def test_and__true_when_all_true() -> None:
+    assert and_([True, True, True]) is True
+
+
+def test_and__false_when_one_false() -> None:
+    assert and_([True, False, True]) is False
+
+
+def test_or__true_when_any_true() -> None:
+    assert or_([False, True, False]) is True
+
+
+def test_or__false_when_all_false() -> None:
+    assert or_([False, False, False]) is False
+
+
+def test_any_true() -> None:
+    assert any(lambda a: a > 3, [1, 2, 3, 4]) is True
+
+
+def test_any_false() -> None:
+    assert any(lambda a: a > 10, [1, 2, 3, 4]) is False
+
+
+def test_any_short_circuits() -> None:
+    calls: List[int] = []
+
+    def predicate(a: int) -> bool:
+        calls.append(a)
+        return a > 1
+
+    assert any(predicate, [1, 2, 3, 4]) is True
+    assert calls == [1, 2]
+
+
+def test_all_true() -> None:
+    assert all(lambda a: a > 0, [1, 2, 3, 4]) is True
+
+
+def test_all_false() -> None:
+    assert all(lambda a: a > 2, [1, 2, 3, 4]) is False
+
+
+def test_all_short_circuits() -> None:
+    calls: List[int] = []
+
+    def predicate(a: int) -> bool:
+        calls.append(a)
+        return a < 2
+
+    assert all(predicate, [1, 2, 3, 4]) is False
+    assert calls == [1, 2]
+
+
+def test_elem_true() -> None:
+    assert elem(3, [1, 2, 3, 4]) is True
+
+
+def test_elem_false() -> None:
+    assert elem(10, [1, 2, 3, 4]) is False
+
+
+def test_notElem_true() -> None:
+    assert notElem(10, [1, 2, 3, 4]) is True
+
+
+def test_notElem_false() -> None:
+    assert notElem(3, [1, 2, 3, 4]) is False
+
+
+def test_find_returns_first_match_wrapped_in_just() -> None:
+    assert find(lambda a: a > 2, [1, 2, 3, 4]) == Just(value=3)
+
+
+def test_find_returns_nothing_when_no_match() -> None:
+    result = find(lambda a: a > 100, [1, 2, 3, 4])
+    assert result == Nothing()
+
+
+def test_find_short_circuits() -> None:
+    calls: List[int] = []
+
+    def predicate(a: int) -> bool:
+        calls.append(a)
+        return a == 2
+
+    find(predicate, [1, 2, 3, 4])
+    assert calls == [1, 2]
