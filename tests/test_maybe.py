@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Generic, List, TypeVar, Union
+from typing import Callable, Generic, Iterator, List, TypeVar, Union
 
 import pytest
 from applicative_laws import assert_applicative_law
@@ -13,6 +13,7 @@ from monad_laws import assert_monad_law
 from ekans.applicative import Applicative
 from ekans.apply import ap
 from ekans.bind import Bind, bind
+from ekans.foldable import Foldable, toList
 from ekans.functor import fmap
 from ekans.maybe import Just, Maybe, Nothing
 from ekans.monad import Monad
@@ -70,6 +71,9 @@ class _RogueMaybe(Maybe[_A], Generic[_A]):
 
     def __hash__(self) -> int:
         return 0
+
+    def __iter__(self) -> "Iterator[_A]":
+        raise NotImplementedError
 
 
 def test_just_holds_the_value() -> None:
@@ -380,3 +384,48 @@ def test_free_mappend_raises_for_an_unrecognized_maybe_subclass() -> None:
     rogue: Maybe[_SemiBox] = _RogueMaybe()
     with pytest.raises(AssertionError):
         mappend(just, rogue)
+
+
+def test_just_is_a_foldable() -> None:
+    assert isinstance(Just(value=1), Foldable)
+
+
+def test_nothing_is_a_foldable() -> None:
+    assert isinstance(Nothing(), Foldable)
+
+
+def test_just_iterates_the_wrapped_value() -> None:
+    assert toList(Just(value=1)) == [1]
+
+
+def test_nothing_iterates_nothing() -> None:
+    just_or_nothing: Maybe[int] = Nothing()
+    assert toList(just_or_nothing) == []
+
+
+@given(st.integers())
+def test_just_functor_foldable_coherence(value: int) -> None:
+    # toList(fmap(f, xs)) == [f(y) for y in toList(xs)] -- see
+    # docs/specs/foldable.md's retrofit Cross-Product audit.
+    f = str
+    box: Maybe[int] = Just(value=value)
+    assert toList(box.fmap(f)) == [f(y) for y in toList(box)]
+
+
+def test_nothing_functor_foldable_coherence() -> None:
+    f = str
+    box: Maybe[int] = Nothing()
+    assert toList(box.fmap(f)) == [f(y) for y in toList(box)]
+
+
+@given(st.integers())
+def test_pointed_foldable_coherence(value: int) -> None:
+    # toList(point(x)) == [x] -- same section; Maybe.point always
+    # produces a Just.
+    assert toList(Maybe.point(value)) == [value]
+
+
+def test_abstract_iter_raises_if_not_overridden() -> None:
+    just = Just(value=1)
+    with pytest.raises(NotImplementedError):
+        Maybe.__iter__(just)
