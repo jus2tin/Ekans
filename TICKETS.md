@@ -200,35 +200,35 @@ Spec: [`docs/specs/semigroup-instances.md`](docs/specs/semigroup-instances.md)
 
 ### T-025: `Sum[A]` Semigroup instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020
 
 New type: `src/ekans/sum.py`, `Sum[A]` with a dedicated `SupportsAdd` `Protocol` (self-typed via its own `TypeVar`, not the outer `A`) bounding `A`. Nominally inherits `Semigroup` directly -- unlike `Identity`/`Const`/`Reader`, no conditional-instance problem here. `Functional`-based frozen dataclass, type-safe `__eq__`/`__hash__` per the Equality convention. Law test via `tests/semigroup_laws.py`'s `assert_semigroup_law`, applied directly since `Sum` is a nominal instance. Real `docs/HOWTO.md` `Sum` section.
 
 ### T-026: `Product[M]` Semigroup instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020
 
 Same shape as T-025 with a `SupportsMul` `Protocol` (`__mul__`) instead of `SupportsAdd`. `src/ekans/product.py`. Law test via `assert_semigroup_law`. Real `docs/HOWTO.md` `Product` section.
 
 ### T-027: `All` Semigroup instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020
 
 New type: `src/ekans/all.py`, `All` fixed to `bool` (not generic), `mappend` is boolean AND, matching Haskell's `newtype All = All Bool` exactly. `Functional`-based frozen dataclass, type-safe `__eq__`/`__hash__`. Law test via `assert_semigroup_law`. Real `docs/HOWTO.md` `All` section.
 
 ### T-028: `liftA2` free function
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-016 (Applicative ABC + law helper)
 
 Add `liftA2` to `src/ekans/applicative.py`: `@overload`-per-concrete-type (`Identity`, `Reader`) plus the loose `Applicative[A]`/`Applicative[B]` fallback, matching `ap`'s shape in `apply.py` -- per the spec's Design section correction, a single fully-generic version silently loses precision (`reveal_type` gives `Applicative[int]`, not `Identity[int]`), the same failure mode that got `Pointed.point`'s free-function form rejected earlier; the overload set fixes this. Example-based tests per overload, plus a `reveal_type` precision probe (deleted after use). Short `docs/HOWTO.md` addition to the existing `Applicative` section.
 
 ### T-029: `Ap[S]` Semigroup instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020, T-028
 
 New type: `src/ekans/ap.py`, `Ap[S]` fixed to wrap `Identity[S]` (not generic over an arbitrary Applicative `F` -- Python has no higher-kinded types, verified in Phase 1: `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar` is a hard mypy error). `mappend` is a direct transcription of Haskell's `mappend (Ap x) (Ap y) = Ap (liftA2 mappend x y)`, built on T-028's `liftA2`. `Functional`-based frozen dataclass, type-safe `__eq__`/`__hash__`. Law test via `assert_semigroup_law`, plus a Hypothesis-checked associativity confirmation matching Phase 1's verification. Real `docs/HOWTO.md` `Ap` section, explaining the higher-kinded-types limitation plainly.

@@ -8,7 +8,7 @@ from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
-from ekans.applicative import Applicative
+from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
 from ekans.functor import Functor, fmap
 from ekans.reader import Reader, const
@@ -149,3 +149,10 @@ def test_free_mappend_is_associative(a: int, b: int, c: int) -> None:
     lhs = mappend(mappend(x, y), z)
     rhs = mappend(x, mappend(y, z))
     assert all(lhs.run(env) == rhs.run(env) for env in range(-5, 5))
+
+
+def test_liftA2_lifts_a_two_argument_function() -> None:
+    x: Reader[int, int] = Reader(run=lambda env: env + 1)
+    y: Reader[int, int] = Reader(run=lambda env: env + 2)
+    lifted = liftA2(lambda a, b: a + b, x, y)
+    assert lifted.run(10) == 23

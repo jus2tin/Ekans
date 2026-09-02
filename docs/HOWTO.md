@@ -17,6 +17,10 @@ Every concept, type, and function that exists in the package gets a section here
 - [Apply: when the function is also in a box](#apply-when-the-function-is-also-in-a-box)
 - [Applicative: Pointed and Apply, together](#applicative-pointed-and-apply-together)
 - [Semigroup: squishing two into one](#semigroup-squishing-two-into-one)
+- [Sum: addition, boxed](#sum-addition-boxed)
+- [Product: multiplication, boxed](#product-multiplication-boxed)
+- [All: everyone has to agree](#all-everyone-has-to-agree)
+- [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -398,6 +402,17 @@ Notice the class declaration: just `Applicative[A]`, nothing else — no separat
 
 That last one is worth being honest about: it's the identical formula to `Apply`'s own associativity law — testing it again here isn't finding new bugs so much as confirming `point` doesn't quietly break something `ap` alone already got right.
 
+**`liftA2`: running a two-argument function across two boxes at once.** `fmap` handles one-argument functions; `ap` lets you chain further arguments in one at a time. `liftA2` is the shortcut for the common two-argument case, built purely from `fmap`/`ap` that `Applicative` already provides:
+
+```python
+from ekans.applicative import liftA2
+from ekans.identity import Identity
+
+liftA2(lambda a, b: a + b, Identity(value=2), Identity(value=3))  # Identity(value=5)
+```
+
+Like `ap`, this needs its own `@overload` per concrete type to stay precise — a version typed only against the abstract `Applicative[A]`/`Applicative[B]` type-checks fine but silently hands back the loose `Applicative[C]` for every call, even a plain `Identity` one. That's worth knowing about generally: a free function that touches concrete types only through an abstract handle can look perfectly type-safe while quietly losing precision, with no error to catch it — the exact trap `Pointed.point`'s free-function form fell into and got rejected for entirely (see `Pointed` above). `liftA2` had a way out `point` didn't (a real generic implementation, so the overloads could be added rather than dropping the free function altogether), but the underlying lesson is the same.
+
 ## Semigroup: squishing two into one
 
 Every type class so far has been about boxes: things that hold a value and know how to be mapped over, pointed into, or applied through. `Semigroup` is different — it's not about boxes at all. It's a property a plain type can have: knowing how to combine two of itself into a third.
@@ -460,6 +475,106 @@ mappend(Identity(value="a"), Identity(value="b"))
 ```
 
 That rejection is real, not just documented convention — `str` genuinely isn't a `Semigroup`, and mypy catches it at the call site. `Box` above isn't a temporary stand-in waiting for a real type to catch up (the way it was for `Functor`) — demonstrating a constrained instance means there will always be a need for a small type that genuinely implements `Semigroup` on its own.
+
+## Sum: addition, boxed
+
+Every `Semigroup` example so far has been a stand-in built purely to demonstrate the shape of the law. `Sum[A]` is the first one that's actually useful: it wraps a value, and `mappend` is just `+`.
+
+```python
+from ekans.sum import Sum
+
+Sum(value=1).mappend(Sum(value=2))  # Sum(value=3)
+Sum(value=1.5).mappend(Sum(value=2.5))  # Sum(value=4.0)
+```
+
+Why bother wrapping a number just to add it? Because plain numbers don't come with one canonical `mappend` — there's more than one reasonable way to combine two of them (`Sum` picks `+`; `Product`, coming next, picks `*`), so `int`/`float` can't just *be* a `Semigroup` on their own without picking a side. Wrapping the number in `Sum` says *which* combining operation you mean, unambiguously. That's the whole reason Haskell's `Data.Monoid` bothers with a newtype here instead of giving `Int` a single built-in instance.
+
+`Sum` is generic over anything that supports `+`, not just built-in numbers:
+
+```python
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+from ekans.sum import Sum
+
+A = TypeVar("A")
+
+
+@dataclass(frozen=True, eq=False)
+class Vector(Generic[A]):
+    x: A
+    y: A
+
+    def __add__(self, other: "Vector[A]") -> "Vector[A]":
+        return Vector(x=self.x + other.x, y=self.y + other.y)  # type: ignore[operator]
+
+
+Sum(value=Vector(x=1, y=2)).mappend(Sum(value=Vector(x=3, y=4)))
+# Sum(value=Vector(x=4, y=6))
+```
+
+That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a small `Protocol` requiring a self-typed `__add__`, so *any* type with an `__add__` that takes and returns its own type works — no need to explicitly subclass anything. Try it with a type that has no `__add__` at all and mypy rejects the `Sum(value=...)` call outright, before you ever get to `mappend`.
+
+## Product: multiplication, boxed
+
+`Product[M]` is `Sum`'s sibling: same shape, different operation. `mappend` is `*` instead of `+`, bounded by its own small `SupportsMul` `Protocol` requiring a self-typed `__mul__`, structurally rather than by inheritance — same reasoning as `Sum`'s `SupportsAdd` above.
+
+```python
+from ekans.product import Product
+
+Product(value=2).mappend(Product(value=3))    # Product(value=6)
+Product(value=1.5).mappend(Product(value=2))  # Product(value=3.0)
+```
+
+Wrapping the number in `Product` rather than `Sum` says which combining operation you mean for the exact same underlying `int`/`float` — the same disambiguation `Sum` needed above, just picking the other one.
+
+## All: everyone has to agree
+
+`Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:
+
+```python
+from ekans.all import All
+
+All(value=True).mappend(All(value=True))    # All(value=True)
+All(value=True).mappend(All(value=False))   # All(value=False)
+```
+
+The name gives away the intuition: combine a bunch of `All`s together and the result is `True` only if *all* of them were. Since there's nothing to be generic over — `bool` is `bool`, there's no version of AND that varies by what's inside — `All` skips the `Protocol`/`TypeVar` machinery `Sum`/`Product` needed entirely, and its `__eq__` is typed against plain `object` rather than needing the type-parameter-narrowing trick from `Identity`/`Sum`/`Product`, since there's no type parameter to mismatch in the first place.
+
+## Ap: a box, held by a box
+
+`Sum`/`Product`/`All` combine plain values. `Ap[S]` combines *boxed* ones — it wraps an `Identity[S]` (where `S` is itself a `Semigroup`), and `mappend` reaches inside both boxes, combines what's there, and re-wraps the result:
+
+```python
+from dataclasses import dataclass
+
+from ekans.ap import Ap
+from ekans.identity import Identity
+from ekans.semigroup import Semigroup
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Semigroup):
+    value: int
+
+    def mappend(self, other: "Box") -> "Box":
+        return Box(value=self.value + other.value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+a = Ap(value=Identity(value=Box(value=1)))
+b = Ap(value=Identity(value=Box(value=2)))
+a.mappend(b)  # Ap(value=Identity(value=Box(value=3)))
+```
+
+Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.value, other.value))` — a direct transcription of Haskell's `mappend (Ap x) (Ap y) = Ap (liftA2 mappend x y)`, which is exactly why `liftA2` (above) needed to exist first: `Ap` isn't reimplementing that logic by hand, it's built straight on top.
+
+**The honest gap:** Haskell's `Ap` is `newtype Ap f a = Ap { getAp :: f a }`, generic over *any* `Applicative f` — you could build `Ap Maybe Int`, `Ap [] Int`, `Ap IO Int`, whatever. Ekans' `Ap[S]` can't do that: it's fixed to wrap `Identity[S]` specifically, not generic over the box itself. This isn't a shortcut taken for convenience — it's a real wall. Python's type system has no *higher-kinded types*: a `TypeVar` can only ever stand for a concrete type, never for a type constructor waiting to be filled in. Try to write `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar`, and mypy refuses outright (`Type variable "F" used with arguments`) — there's no way to say "some box, whichever one, applied to `A`" the way Haskell's kind system lets you. So Ekans' `Ap` picks one box (`Identity`, the simplest one available) and stops there, rather than pretending to a generality the type system genuinely can't check.
 
 ## Coming soon
 

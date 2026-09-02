@@ -1,13 +1,20 @@
 """Applicative: a type that's both Pointed and Apply."""
 
 from abc import abstractmethod
-from typing import Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar, overload
 
 from ekans.apply import Apply
 from ekans.pointed import Pointed
 
+if TYPE_CHECKING:
+    from ekans.identity import Identity
+    from ekans.reader import Reader
+
 A_co = TypeVar("A_co", covariant=True)
+A = TypeVar("A")
 B = TypeVar("B")
+C = TypeVar("C")
+R = TypeVar("R")
 
 
 class Applicative(Pointed[A_co], Apply[A_co], Generic[A_co]):
@@ -62,3 +69,40 @@ class Applicative(Pointed[A_co], Apply[A_co], Generic[A_co]):
             A new Applicative of the same shape, wrapping the result.
         """
         raise NotImplementedError
+
+
+@overload
+def liftA2(
+    f: Callable[[A, B], C], fa: "Identity[A]", fb: "Identity[B]"
+) -> "Identity[C]": ...
+@overload  # noqa: E302
+def liftA2(
+    f: Callable[[A, B], C], fa: "Reader[R, A]", fb: "Reader[R, B]"
+) -> "Reader[R, C]": ...
+@overload  # noqa: E302
+def liftA2(
+    f: Callable[[A, B], C], fa: "Applicative[A]", fb: "Applicative[B]"
+) -> "Applicative[C]": ...
+def liftA2(  # noqa: E302
+    f: Callable[[A, B], C], fa: "Applicative[A]", fb: "Applicative[B]"
+) -> "Applicative[C]":
+    """Lift a two-argument function into two Applicatives of the same shape.
+
+    As each new concrete Applicative type is added, this gains its own
+    `@overload` (above the loose `Applicative[A]`/`Applicative[B]`
+    fallback, which must stay last) so calls against a known concrete
+    type keep a precise return type -- same pattern `ap` uses in
+    `apply.py`. Without the per-type overloads, this type-checks fine
+    but silently degrades to the loose `Applicative[C]` even for a
+    concrete `Identity`/`Reader` call.
+
+    Args:
+        f: A two-argument function to lift.
+        fa: The first Applicative, wrapping `f`'s first argument.
+        fb: The second Applicative, wrapping `f`'s second argument.
+
+    Returns:
+        A new Applicative of the same shape, wrapping `f` applied to
+        both wrapped values.
+    """
+    return fb.ap(fa.fmap(lambda a: lambda b: f(a, b)))
