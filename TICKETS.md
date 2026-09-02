@@ -509,7 +509,7 @@ Documentation: new `docs/HOWTO.md` `Either` section covering the sealed shape an
 
 ### T-061: Real `Either`-based short-circuit regression test for `@do`
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-060
 
 Per `docs/specs/do.md`'s original follow-up (which named both `Maybe` and `Either`): add one additional test to `tests/test_do.py` using real `Left`/`Right` confirming a `@do` block halts at the first `Left` and never resumes past it. Short addition to `docs/HOWTO.md`'s existing `@do` section noting the second real example now exists.
