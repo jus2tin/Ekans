@@ -353,3 +353,35 @@ Same shape as T-043: `Const.mempty(cls, value_type: Type[S]) -> Const[S, B]`, `B
 **Depends on:** T-037
 
 Same shape as T-043/T-044: `Reader.mempty(cls, value_type: Type[S]) -> Reader[R, S]`, pointwise (`Reader(run=lambda r: value_type.mempty())`, ignoring the environment entirely -- same pattern as `Reader.point`/`const`), `R` freely inferred. Verified in Phase 1. Update `docs/HOWTO.md`'s `Reader` section.
+
+## Bind
+
+Spec: [`docs/specs/bind.md`](docs/specs/bind.md)
+
+### T-046: Bind ABC + free `bind` function
+
+**Status:** Open
+**Depends on:** T-012 (Apply ABC)
+
+Add `src/ekans/bind.py` with `Bind[A_co](Apply[A_co], Generic[A_co])` per the spec: abstract `bind` method, no `fmap`/`ap` re-declaration needed (verified in Phase 1 -- `Bind`'s law only chains `.bind()`, unlike `Applicative`'s chained `.fmap()`/`.ap()`). Free `bind(f, x)` function as a single plain-typed function for now (no `Identity`/`Reader` overload yet, matching `fmap`'s T-001/`ap`'s T-012 precedent). Includes the real `docs/HOWTO.md` `Bind` section, including the `Const` exclusion explained plainly.
+
+### T-047: Bind associativity law-checking helper
+
+**Status:** Open
+**Depends on:** T-046
+
+`tests/bind_laws.py`: `assert_bind_law(make, values, equal=None)` -- associativity, generated functions via `st.functions(like=...)` since `f`/`g` return wrapped values (closer to `apply_laws.py`'s shape than `semigroup_laws.py`'s). T-048/T-049 are its callers.
+
+### T-048: Identity implements Bind
+
+**Status:** Open
+**Depends on:** T-046, T-047
+
+Retrofit `Identity[A]` to also inherit `Bind[A]` and implement `bind` (returns `f(self.value)`). Add its overload to the free `bind` function. Law test via T-047's helper, plus a concrete example test. Cross-Product audit test: `m.bind(f).extract() == f(m.extract()).extract()` (Bind/Extractable). Update `docs/HOWTO.md`'s `Identity` section.
+
+### T-049: Reader implements Bind
+
+**Status:** Open
+**Depends on:** T-046, T-047
+
+Retrofit `Reader[R, A]` to also inherit `Bind[A]` and implement `bind` (`Reader(run=lambda r: f(self.run(r)).run(r))`, threading the environment through both `self` and the result of `f`). Add its overload to the free `bind` function. Law test via T-047's helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s other law tests). Update `docs/HOWTO.md`'s `Reader` section.
