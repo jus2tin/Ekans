@@ -8,6 +8,7 @@ from ekans.functor import Functor
 
 if TYPE_CHECKING:
     from ekans.identity import Identity
+    from ekans.maybe import Just, Maybe, Nothing
     from ekans.reader import Reader
     from ekans.semigroup import Semigroup
 
@@ -65,16 +66,23 @@ def ap(f: "Reader[R, Callable[[A], B]]", x: "Reader[R, A]") -> "Reader[R, B]": .
 @overload
 def ap(f: "Const[S, Callable[[A], B]]", x: "Const[S, A]") -> "Const[S, B]": ...
 @overload
+def ap(f: "Maybe[Callable[[A], B]]", x: "Just[A]") -> "Union[Just[B], Nothing[B]]": ...
+@overload
+def ap(f: "Maybe[Callable[[A], B]]", x: "Nothing[A]") -> "Nothing[B]": ...
+@overload
+def ap(f: "Maybe[Callable[[A], B]]", x: "Maybe[A]") -> "Union[Just[B], Nothing[B]]": ...
+@overload
 def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]: ...
 def ap(  # noqa: E302
     f: Union[
         "Identity[Callable[[A], B]]",
         "Reader[R, Callable[[A], B]]",
         "Const[S, Callable[[A], B]]",
+        "Maybe[Callable[[A], B]]",
         "Apply[Callable[[A], B]]",
     ],
-    x: Union["Identity[A]", "Reader[R, A]", "Const[S, A]", Apply[A]],
-) -> Union["Identity[B]", "Reader[R, B]", "Const[S, B]", Apply[B]]:
+    x: Union["Identity[A]", "Reader[R, A]", "Const[S, A]", "Maybe[A]", Apply[A]],
+) -> Union["Identity[B]", "Reader[R, B]", "Const[S, B]", "Maybe[B]", Apply[B]]:
     """Free-function form of `Apply.ap`; delegates to the method.
 
     As each new concrete Apply type is added, this gains its own

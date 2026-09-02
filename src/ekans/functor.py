@@ -1,13 +1,14 @@
 """Functor: mapping over a value without changing its container's shape."""
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Callable, Generic, TypeVar, overload
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar, Union, overload
 
 from ekans.functional import Functional
 
 if TYPE_CHECKING:
     from ekans.const import Const
     from ekans.identity import Identity
+    from ekans.maybe import Just, Maybe, Nothing
     from ekans.reader import Reader
 
 A_co = TypeVar("A_co", covariant=True)
@@ -44,6 +45,12 @@ def fmap(f: Callable[[A], B], functor: "Identity[A]") -> "Identity[B]": ...
 def fmap(f: Callable[[A], B], functor: "Const[H, A]") -> "Const[H, B]": ...
 @overload
 def fmap(f: Callable[[A], B], functor: "Reader[R, A]") -> "Reader[R, B]": ...
+@overload
+def fmap(f: Callable[[A], B], functor: "Just[A]") -> "Just[B]": ...
+@overload
+def fmap(f: Callable[[A], B], functor: "Nothing[A]") -> "Nothing[B]": ...
+@overload
+def fmap(f: Callable[[A], B], functor: "Maybe[A]") -> "Union[Just[B], Nothing[B]]": ...
 @overload
 def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]: ...
 def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]:  # noqa: E302
