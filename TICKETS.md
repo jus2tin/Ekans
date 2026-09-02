@@ -307,7 +307,7 @@ Add `src/ekans/monoid.py` with `Monoid(Semigroup)` per the spec: abstract `mempt
 
 ### T-039: All implements Monoid
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037, T-038
 
 Retrofit `All` to nominally inherit `Monoid` (no erasure problem -- `All` isn't generic). `mempty(cls) -> All` returns `All(value=True)`, the identity for AND. Law test via T-038's helper. Cross-Product audit test: `All.mempty().extract() == True` (Monoid/Extractable). Update `docs/HOWTO.md`'s `All` section.

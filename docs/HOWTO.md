@@ -553,6 +553,8 @@ The name gives away the intuition: combine a bunch of `All`s together and the re
 
 `All` is also `Extractable[bool]` — not a generic `Extractable[A]`, since `All` itself was never generic: `All(value=True).extract()` returns `True`.
 
+`All` is also, genuinely, a `Monoid` — the one type in this round with no erasure wall to hit, since it isn't generic over anything. `All.mempty()` is exactly the nullary classmethod `Monoid` promises, no `Type[X]` argument needed: `All.mempty() == All(value=True)`, `True` being AND's identity (combine anything with `True` and you get that thing back).
+
 ## Ap: a box, held by a box
 
 `Sum`/`Product`/`All` combine plain values. `Ap[S]` combines *boxed* ones — it wraps an `Identity[S]` (where `S` is itself a `Semigroup`), and `mappend` reaches inside both boxes, combines what's there, and re-wraps the result:
