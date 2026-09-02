@@ -232,3 +232,55 @@ Add `liftA2` to `src/ekans/applicative.py`: `@overload`-per-concrete-type (`Iden
 **Depends on:** T-020, T-028
 
 New type: `src/ekans/ap.py`, `Ap[S]` fixed to wrap `Identity[S]` (not generic over an arbitrary Applicative `F` -- Python has no higher-kinded types, verified in Phase 1: `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar` is a hard mypy error). `mappend` is a direct transcription of Haskell's `mappend (Ap x) (Ap y) = Ap (liftA2 mappend x y)`, built on T-028's `liftA2`. `Functional`-based frozen dataclass, type-safe `__eq__`/`__hash__`. Law test via `assert_semigroup_law`, plus a Hypothesis-checked associativity confirmation matching Phase 1's verification. Real `docs/HOWTO.md` `Ap` section, explaining the higher-kinded-types limitation plainly.
+
+## Extractable
+
+Spec: [`docs/specs/extractable.md`](docs/specs/extractable.md)
+
+### T-030: Extractable ABC
+
+**Status:** Open
+
+Add `src/ekans/extractable.py` with the `Extractable[A_co](Functional, Generic[A_co])` abstract class per the spec: covariant type parameter, abstract `extract` method, no override narrowing needed anywhere (verified in Phase 1 -- return-type-only narrowing on an instance method doesn't trigger `[override]`, same category of finding as `Semigroup.mappend`'s `typing.Self`). Includes the real `docs/HOWTO.md` `Extractable` section (new -- no prior stub existed for this, since it wasn't part of the originally planned hierarchy). `CLAUDE.md`'s Type hierarchy gets the new "Comonad-based structures" branch (`Extractable`, plus `Extend`/`Comonad` as stubs) in this same commit.
+
+### T-031: Identity implements Extractable
+
+**Status:** Open
+**Depends on:** T-030
+
+Retrofit `Identity[A]` to also inherit `Extractable[A]` and implement `extract` (returns `self.value`). Verified via Phase 1 that this composes with `Applicative[A]` in the MRO with no conflict. Example test plus a `reveal_type` precision probe (deleted after use). Update `docs/HOWTO.md`'s `Identity` section with a short `extract` addition.
+
+### T-032: Sum implements Extractable
+
+**Status:** Open
+**Depends on:** T-030
+
+Retrofit `Sum[A]` to inherit `Extractable[A]`, `extract` returns `self.value`. Example test. Update `docs/HOWTO.md`'s `Sum` section with a short `extract` addition.
+
+### T-033: Product implements Extractable
+
+**Status:** Open
+**Depends on:** T-030
+
+Retrofit `Product[M]` to inherit `Extractable[M]`, `extract` returns `self.value`. Example test. Update `docs/HOWTO.md`'s `Product` section with a short `extract` addition.
+
+### T-034: All implements Extractable
+
+**Status:** Open
+**Depends on:** T-030
+
+Retrofit `All` to inherit `Extractable[bool]`, `extract` returns `self.value`. Example test. Update `docs/HOWTO.md`'s `All` section with a short `extract` addition.
+
+### T-035: Const implements Extractable
+
+**Status:** Open
+**Depends on:** T-030
+
+Retrofit `Const[A, B]` to also inherit `Extractable[A]` alongside its existing `Functor[B]`, `extract` returns `self.value` (the held `A`, not the phantom `B`). Verified in Phase 1 that this two-different-type-parameter composition type-checks cleanly. Example test plus a `reveal_type` precision probe. Update `docs/HOWTO.md`'s `Const` section with a short `extract` addition.
+
+### T-036: Ap implements Extractable
+
+**Status:** Open
+**Depends on:** T-030, T-031 (Ap's `extract` delegates to Identity's)
+
+Retrofit `Ap[S]` to inherit `Extractable[S]`, `extract` returns `self.value.extract()` -- fully unwrapping through the wrapped `Identity[S]` to `S` directly, per the spec's Design section (not a shallow `Identity[S]` return). Example test plus a `reveal_type` precision probe confirming the full unwrap. Update `docs/HOWTO.md`'s `Ap` section with a short `extract` addition.

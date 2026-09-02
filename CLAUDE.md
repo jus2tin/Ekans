@@ -88,6 +88,10 @@ mypy src tests --strict
                 - Applicative — Pointed + Apply
                 - Bind — provides `bind`; needs Apply
                     - Monad — Applicative + Bind
+    - Comonad-based structures — the dual of Endofunctor based structures above; `extract`/`extend` mirror `point`/`bind` with the arrows reversed
+        - Extractable — provides `extract`; needs only Functional, same minimal placement as Pointed
+        - Extend — provides `extend`/`duplicate`; needs Functor (not yet implemented)
+            - Comonad — Functor + Extractable + Extend (not yet implemented)
     - Algebraic structures
         - Semigroup
         - Monoid
