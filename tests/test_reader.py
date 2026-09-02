@@ -1,11 +1,13 @@
 from typing import Callable
 
 import pytest
+from applicative_laws import assert_applicative_law
 from apply_laws import assert_apply_law
 from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
+from ekans.applicative import Applicative
 from ekans.apply import ap
 from ekans.functor import Functor, fmap
 from ekans.reader import Reader, const
@@ -102,3 +104,11 @@ def test_free_ap_delegates_to_the_method() -> None:
 
 def test_satisfies_the_apply_law() -> None:
     assert_apply_law(_make_reader, st.integers(), equal=_compare_readers)
+
+
+def test_is_an_applicative() -> None:
+    assert isinstance(Reader(run=lambda r: r), Applicative)
+
+
+def test_satisfies_the_applicative_laws() -> None:
+    assert_applicative_law(Reader.point, st.integers(), equal=_compare_readers)

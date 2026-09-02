@@ -290,6 +290,8 @@ threaded.run(4)  # 16
 
 If the environment leaking into both sides sounds obvious, it's worth checking: it would be just as easy to write an `ap` that accidentally used two *different* environments (say, by hardcoding one side), and the result would still type-check fine — the bug would only show up as wrong numbers at runtime. That's exactly why this got a behavioral test, not just a type-checked one.
 
+Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, same as `Identity`.
+
 ## Apply: when the function is also in a box
 
 `fmap` covers a lot of ground, but it has one blind spot: the function you're mapping with always has to be a plain, ordinary function sitting outside any box. What happens when the function itself is *also* stuck inside a box? That's `Apply`.

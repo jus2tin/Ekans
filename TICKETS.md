@@ -151,7 +151,7 @@ Add `ap` to `Reader[R, A]`, threading the same environment value into both the w
 
 ### T-019: Reader implements Applicative
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-016, T-018
 
 Retrofit `Reader[R, A]`'s base classes to `Applicative[A]` only, dropping the now-redundant explicit `Functor[A]`/`Pointed[A]` — same MRO lesson as T-017. No new methods. Law test via the T-016 helper with the environment-sampling `equal` comparator. Update `docs/HOWTO.md`'s `Reader` section with a short note.

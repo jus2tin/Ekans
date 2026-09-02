@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 
-from ekans.apply import Apply
-from ekans.pointed import Pointed
+from ekans.applicative import Applicative
 
 A = TypeVar("A")
 C = TypeVar("C")
@@ -34,7 +33,7 @@ def const(value: A) -> Callable[[C], A]:
 
 
 @dataclass(frozen=True, eq=False)
-class Reader(Pointed[A], Apply[A], Generic[R, A]):
+class Reader(Applicative[A], Generic[R, A]):
     """The function arrow `(-> r)`: wraps a function from an environment to a result.
 
     Deliberately has no `__eq__`/`__hash__` override, unlike Identity/
