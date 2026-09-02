@@ -17,6 +17,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Apply: when the function is also in a box](#apply-when-the-function-is-also-in-a-box)
 - [Applicative: Pointed and Apply, together](#applicative-pointed-and-apply-together)
 - [Semigroup: squishing two into one](#semigroup-squishing-two-into-one)
+- [Sum: addition, boxed](#sum-addition-boxed)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -460,6 +461,45 @@ mappend(Identity(value="a"), Identity(value="b"))
 ```
 
 That rejection is real, not just documented convention — `str` genuinely isn't a `Semigroup`, and mypy catches it at the call site. `Box` above isn't a temporary stand-in waiting for a real type to catch up (the way it was for `Functor`) — demonstrating a constrained instance means there will always be a need for a small type that genuinely implements `Semigroup` on its own.
+
+## Sum: addition, boxed
+
+Every `Semigroup` example so far has been a stand-in built purely to demonstrate the shape of the law. `Sum[A]` is the first one that's actually useful: it wraps a value, and `mappend` is just `+`.
+
+```python
+from ekans.sum import Sum
+
+Sum(value=1).mappend(Sum(value=2))  # Sum(value=3)
+Sum(value=1.5).mappend(Sum(value=2.5))  # Sum(value=4.0)
+```
+
+Why bother wrapping a number just to add it? Because plain numbers don't come with one canonical `mappend` — there's more than one reasonable way to combine two of them (`Sum` picks `+`; `Product`, coming next, picks `*`), so `int`/`float` can't just *be* a `Semigroup` on their own without picking a side. Wrapping the number in `Sum` says *which* combining operation you mean, unambiguously. That's the whole reason Haskell's `Data.Monoid` bothers with a newtype here instead of giving `Int` a single built-in instance.
+
+`Sum` is generic over anything that supports `+`, not just built-in numbers:
+
+```python
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+from ekans.sum import Sum
+
+A = TypeVar("A")
+
+
+@dataclass(frozen=True, eq=False)
+class Vector(Generic[A]):
+    x: A
+    y: A
+
+    def __add__(self, other: "Vector[A]") -> "Vector[A]":
+        return Vector(x=self.x + other.x, y=self.y + other.y)  # type: ignore[operator]
+
+
+Sum(value=Vector(x=1, y=2)).mappend(Sum(value=Vector(x=3, y=4)))
+# Sum(value=Vector(x=4, y=6))
+```
+
+That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a small `Protocol` requiring a self-typed `__add__`, so *any* type with an `__add__` that takes and returns its own type works — no need to explicitly subclass anything. Try it with a type that has no `__add__` at all and mypy rejects the `Sum(value=...)` call outright, before you ever get to `mappend`.
 
 ## Coming soon
 

@@ -200,7 +200,7 @@ Spec: [`docs/specs/semigroup-instances.md`](docs/specs/semigroup-instances.md)
 
 ### T-025: `Sum[A]` Semigroup instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020
 
 New type: `src/ekans/sum.py`, `Sum[A]` with a dedicated `SupportsAdd` `Protocol` (self-typed via its own `TypeVar`, not the outer `A`) bounding `A`. Nominally inherits `Semigroup` directly -- unlike `Identity`/`Const`/`Reader`, no conditional-instance problem here. `Functional`-based frozen dataclass, type-safe `__eq__`/`__hash__` per the Equality convention. Law test via `tests/semigroup_laws.py`'s `assert_semigroup_law`, applied directly since `Sum` is a nominal instance. Real `docs/HOWTO.md` `Sum` section.
