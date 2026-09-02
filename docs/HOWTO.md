@@ -596,6 +596,8 @@ Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.va
 
 `Ap` is also `Extractable[S]` — and, unlike every other instance in this round, it doesn't stop at its own immediate field. `Ap[S]`'s `.value` is an `Identity[S]`, but `extract` reaches straight through it to `S`: `a.extract()` on `Ap(value=Identity(value=Box(value=1)))` returns `Box(value=1)` directly, not `Identity(value=Box(value=1)))`. The implementation is exactly that one-line delegation, `self.value.extract()` — `Identity` being `Extractable` too is what makes it possible.
 
+`Ap.mempty(SomeMonoidType)` is the simplest `mempty` in the package — no `int`/`float` registry needed the way `Sum`/`Product` need one, since `S` is already bound to `Semigroup` and the `Type[X]` argument is bound one notch tighter, to `Monoid`, which already has its own real `mempty()`. `Ap.mempty` just delegates straight to it: `Identity(value=value_type.mempty())`.
+
 ## Extractable: getting a value out of a box
 
 `Pointed` (above) is "give me a box of this shape, holding this value" — a value goes in, a box comes out. `Extractable` runs that exact arrow backwards: a box goes in, its value comes out.

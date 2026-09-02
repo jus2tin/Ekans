@@ -328,7 +328,7 @@ Same shape as T-040 with a `SupportsOne` protocol (extending `SupportsMul`) and 
 
 ### T-042: Ap's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037, T-030 (Extractable, for the cross-product test), T-036 (Ap implements Extractable)
 
 Add `Ap.mempty(cls, value_type: Type[S])` where `S: Monoid`, returning `Ap(value=Identity(value=value_type.mempty()))`. Does not override `Monoid.mempty` -- same non-nominal reasoning as T-040/T-041. Tests: construction, left/right identity against `.mappend()` directly, `reveal_type` precision probe. Cross-Product audit test: `Ap.mempty(Box).extract() == Box.mempty()`. Update `docs/HOWTO.md`'s `Ap` section.

@@ -7,14 +7,16 @@ hard mypy error).
 """
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Generic, Type, TypeVar
 
 from ekans.applicative import liftA2
 from ekans.extractable import Extractable
 from ekans.identity import Identity
+from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup
 
 S = TypeVar("S", bound=Semigroup)
+T = TypeVar("T", bound=Monoid)
 
 
 @dataclass(frozen=True, eq=False)
@@ -80,3 +82,22 @@ class Ap(Semigroup, Extractable[S], Generic[S]):
             The fully unwrapped held value.
         """
         return self.value.extract()
+
+    @classmethod
+    def mempty(cls, value_type: Type[T]) -> "Ap[T]":
+        """Construct the identity element for `value_type`.
+
+        Does not override `Monoid.mempty` -- `Ap` doesn't nominally
+        inherit `Monoid`, same non-nominal reasoning as `Sum`/`Product`.
+        No int/float registry needed here, unlike `Sum`/`Product` --
+        `value_type` is itself already bound to `Monoid`, so its own
+        `mempty()` does the work directly.
+
+        Args:
+            value_type: The concrete Monoid type to build the identity
+                for.
+
+        Returns:
+            A new Ap wrapping `Identity(value=value_type.mempty())`.
+        """
+        return Ap(value=Identity(value=value_type.mempty()))
