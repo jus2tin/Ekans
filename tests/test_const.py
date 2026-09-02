@@ -10,6 +10,7 @@ from ekans.applicative import liftA2
 from ekans.apply import ap
 from ekans.const import Const
 from ekans.extractable import Extractable
+from ekans.foldable import Foldable, toList
 from ekans.functor import fmap
 from ekans.identity import Identity
 from ekans.monoid import Monoid
@@ -218,3 +219,30 @@ def test_liftA2_combines_the_held_semigroup_values(a: int, b: int) -> None:
     x: Const[_Box, int] = Const(value=_Box(value=a))
     y: Const[_Box, str] = Const(value=_Box(value=b))
     assert liftA2(lambda p, q: f"{p}{q}", x, y) == Const(value=_Box(value=a + b))
+
+
+def test_is_a_foldable() -> None:
+    const: Const[int, str] = Const(value=1)
+    assert isinstance(const, Foldable)
+
+
+def test_iterates_nothing() -> None:
+    # Const's Foldable instance folds over B, which is never held.
+    const: Const[int, str] = Const(value=1)
+    assert toList(const) == []
+
+
+def test_functor_foldable_coherence() -> None:
+    # toList(fmap(f, xs)) == [f(y) for y in toList(xs)] -- both sides
+    # empty for Const, per docs/specs/foldable.md's retrofit audit.
+    const: Const[int, str] = Const(value=1)
+    assert toList(const.fmap(str)) == [str(y) for y in toList(const)]
+
+
+def test_extractable_foldable_non_law() -> None:
+    # Documented non-law, per the spec's retrofit Cross-Product audit:
+    # extract() returns the held A, but Foldable folds over the
+    # phantom B (always empty) -- the two deliberately diverge.
+    const: Const[int, str] = Const(value=5)
+    assert const.extract() == 5
+    assert toList(const) == []

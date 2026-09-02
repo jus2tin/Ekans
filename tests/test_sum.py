@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
 from ekans.extractable import Extractable
+from ekans.foldable import Foldable, toList
 from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup
 from ekans.sum import Sum
@@ -120,3 +121,18 @@ def test_mempty_extract_is_the_additive_identity() -> None:
     # Monoid/Extractable, non-nominal form -- per the spec's
     # Cross-Product audit section.
     assert Sum.mempty(int).extract() == 0
+
+
+def test_is_a_foldable() -> None:
+    assert isinstance(Sum(value=1), Foldable)
+
+
+def test_iterates_the_wrapped_value() -> None:
+    assert toList(Sum(value=1)) == [1]
+
+
+def test_extractable_foldable_coherence() -> None:
+    # toList(xs) == [extract(xs)] -- see docs/specs/foldable.md's
+    # retrofit Cross-Product audit.
+    total = Sum(value=5)
+    assert toList(total) == [total.extract()]

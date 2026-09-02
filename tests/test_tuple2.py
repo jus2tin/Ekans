@@ -10,6 +10,7 @@ from ekans.applicative import Applicative, liftA2
 from ekans.apply import Apply, ap
 from ekans.bind import Bind, bind
 from ekans.extractable import Extractable
+from ekans.foldable import Foldable, toList
 from ekans.functor import fmap
 from ekans.monad import Monad
 from ekans.monoid import Monoid
@@ -302,3 +303,26 @@ def test_mappend_extract_homomorphism() -> None:
     x: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=2), second=_Box(value=3))
     y: Tuple2[_Box, _Box] = Tuple2(first=_Box(value=4), second=_Box(value=5))
     assert mappend(x, y).extract() == x.extract().mappend(y.extract())
+
+
+def test_is_a_foldable() -> None:
+    assert isinstance(Tuple2(first="a", second=1), Foldable)
+
+
+def test_iterates_second_only() -> None:
+    assert toList(Tuple2(first="a", second=1)) == [1]
+
+
+@given(st.integers())
+def test_functor_foldable_coherence(value: int) -> None:
+    # toList(fmap(f, xs)) == [f(y) for y in toList(xs)] -- see
+    # docs/specs/foldable.md's retrofit Cross-Product audit.
+    f = str
+    pair = Tuple2(first="a", second=value)
+    assert toList(pair.fmap(f)) == [f(y) for y in toList(pair)]
+
+
+def test_extractable_foldable_coherence() -> None:
+    # toList(xs) == [extract(xs)] -- same section.
+    pair = Tuple2(first="a", second=5)
+    assert toList(pair) == [pair.extract()]

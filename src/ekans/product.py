@@ -1,7 +1,7 @@
 """Product: a Semigroup wrapper combining values via multiplication."""
 
 from dataclasses import dataclass
-from typing import Any, Generic, Protocol, Type, TypeVar, overload
+from typing import Any, Generic, Iterator, Protocol, Type, TypeVar, overload
 
 from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
@@ -82,6 +82,14 @@ class Product(Semigroup, Extractable[M], Generic[M]):
             The wrapped value.
         """
         return self.value
+
+    def __iter__(self) -> Iterator[M]:
+        """Yield the wrapped value.
+
+        Returns:
+            An iterator yielding exactly `self.value`.
+        """
+        yield self.value
 
     @overload
     @classmethod

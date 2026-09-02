@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Generic, List, TypeVar, Union
+from typing import Callable, Generic, Iterator, List, TypeVar, Union
 
 import pytest
 from applicative_laws import assert_applicative_law
@@ -14,6 +14,7 @@ from ekans.applicative import Applicative
 from ekans.apply import ap
 from ekans.bind import Bind, bind
 from ekans.either import Either, Left, Right
+from ekans.foldable import Foldable, toList
 from ekans.functor import fmap
 from ekans.monad import Monad
 
@@ -47,6 +48,9 @@ class _RogueEither(Either[_L, _R], Generic[_L, _R]):
 
     def __hash__(self) -> int:
         return 0
+
+    def __iter__(self) -> "Iterator[_R]":
+        raise NotImplementedError
 
 
 def test_left_holds_the_value() -> None:
@@ -301,3 +305,48 @@ def test_match_case_is_exhaustive_over_left() -> None:
 @given(st.integers())
 def test_match_case_narrows_rights_value_precisely(value: int) -> None:
     assert _describe(Right(value=value)) == f"ok: {value}"
+
+
+def test_right_is_a_foldable() -> None:
+    assert isinstance(Right(value=1), Foldable)
+
+
+def test_left_is_a_foldable() -> None:
+    assert isinstance(Left(value="e"), Foldable)
+
+
+def test_right_iterates_the_wrapped_value() -> None:
+    assert toList(Right(value=1)) == [1]
+
+
+def test_left_iterates_nothing() -> None:
+    either: Either[str, int] = Left(value="e")
+    assert toList(either) == []
+
+
+@given(st.integers())
+def test_right_functor_foldable_coherence(value: int) -> None:
+    # toList(fmap(f, xs)) == [f(y) for y in toList(xs)] -- see
+    # docs/specs/foldable.md's retrofit Cross-Product audit.
+    f = str
+    either: Either[str, int] = Right(value=value)
+    assert toList(either.fmap(f)) == [f(y) for y in toList(either)]
+
+
+def test_left_functor_foldable_coherence() -> None:
+    f = str
+    either: Either[str, int] = Left(value="e")
+    assert toList(either.fmap(f)) == [f(y) for y in toList(either)]
+
+
+@given(st.integers())
+def test_pointed_foldable_coherence(value: int) -> None:
+    # toList(point(x)) == [x] -- same section; Either.point always
+    # produces a Right.
+    assert toList(Either.point(value)) == [value]
+
+
+def test_abstract_iter_raises_if_not_overridden() -> None:
+    right: Right[str, int] = Right(value=1)
+    with pytest.raises(NotImplementedError):
+        Either.__iter__(right)

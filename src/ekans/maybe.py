@@ -2,7 +2,7 @@
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, Generic, Iterator, Type, TypeVar, Union
 
 from ekans.monad import Monad
 
@@ -110,6 +110,16 @@ class Maybe(Monad[A], Generic[A]):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def __iter__(self) -> Iterator[A]:
+        """Yield the wrapped value, if there is one.
+
+        Returns:
+            An iterator yielding `self.value` for a `Just`, nothing
+            for a `Nothing`.
+        """
+        raise NotImplementedError
+
 
 @dataclass(frozen=True, eq=False)
 class Just(Maybe[A], Generic[A]):
@@ -204,6 +214,14 @@ class Just(Maybe[A], Generic[A]):
         """
         return hash(self.value)
 
+    def __iter__(self) -> Iterator[A]:
+        """Yield the wrapped value.
+
+        Returns:
+            An iterator yielding exactly `self.value`.
+        """
+        yield self.value
+
 
 @dataclass(frozen=True, eq=False)
 class Nothing(Maybe[A], Generic[A]):
@@ -267,3 +285,11 @@ class Nothing(Maybe[A], Generic[A]):
             A constant hash shared by every Nothing instance.
         """
         return 0
+
+    def __iter__(self) -> Iterator[A]:
+        """Yield nothing -- there's no wrapped value.
+
+        Returns:
+            An empty iterator.
+        """
+        return iter(())

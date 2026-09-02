@@ -25,7 +25,27 @@ class Foldable(Protocol[A_co]):
 
 Verified against `mypy --strict`: an **invariant** `TypeVar` here is a real error (`Invariant type variable "A" used in protocol where covariant one is expected [misc]`) — `A_co` must be declared covariant, the same reasoning `Functor`'s own `A_co` already uses. With that fix, structural satisfaction is confirmed both statically (a function parameter typed `Foldable[A]` accepts `list[int]`, `tuple[int, ...]`, a generator, and a custom dataclass whose only relevant feature is a hand-written `__iter__`, with zero explicit inheritance from any of them) and at runtime (`@runtime_checkable` + `isinstance` checks agree with the static picture, including correctly rejecting a plain `int`).
 
-None of Ekans's own shipped types (`Identity`, `Const`, `Reader`, `Maybe`, `Either`, `Tuple2`, `Sum`, `Product`, `All`, `Ap`) currently satisfy `Foldable` — none of them define `__iter__`. This is expected, not a gap: `Foldable`'s entire design point is structural satisfaction of things that are *already* iterable (Python's own builtins, and any future custom type that has a real reason to be iterable), not something Ekans's single/double-value wrapper types are meant to opt into. Recorded here per the Proof Burden rather than silently assumed.
+None of Ekans's own shipped types satisfied `Foldable` when this spec was first approved — none defined `__iter__`. That was expected for the initial round, not a gap, and is now superseded by the retrofit documented below.
+
+### Retrofit: `__iter__` on existing concrete types (added after initial approval)
+
+Requested directly, after T-064–T-066 shipped: give every Ekans concrete type that has a genuine, Haskell-faithful `Foldable` instance a real `__iter__`, so it satisfies `Foldable` structurally rather than remaining an intentional non-instance forever. "Genuine" means: does the equivalent Haskell type actually derive/define `Foldable`, folding over the same type parameter this project's `Functor`/`Extractable` instances already treat as "the" contained value?
+
+**In scope, each mirroring an existing Haskell `Foldable` instance:**
+- `Identity[A]` — `instance Foldable Identity`; one element, `self.value`.
+- `Const[A, B]` — `instance Foldable (Const a)`; folds over `B`, which is never actually held, so always empty (`iter(())`), matching `Const`'s own `fmap`, which is a no-op re-tag over the same phantom `B`.
+- `Just[A]` / `Nothing[A]` — `instance Foldable Maybe`; one element / empty. Declared abstract on `Maybe` and overridden per variant, the same pattern already used for `fmap`/`ap`/`bind`.
+- `Left[L, R]` / `Right[L, R]` — `instance Foldable (Either a)`; folds over `R`, matching the existing `Monad[R]` bias — empty / one element. Same abstract-on-`Either`, override-per-variant shape.
+- `Tuple2[A, B]` — `instance Foldable ((,) a)`; folds over `B` only, matching `Tuple2`'s existing `Functor[B]`/`Extractable[B]` bias — one element, `self.second`.
+- `Sum[A]`, `Product[M]` — modern GHC `base` derives `Functor`/`Foldable`/`Traversable` for these newtype wrappers; one element, `self.value`.
+- `Ap[S]` — wraps `Identity[S]`; folds through the inner `Identity`, yielding its one `S`. `self.value.value` (unwrap through the wrapped `Identity`, not `self.value` itself, which is the `Identity[S]`, not the `S`).
+
+**Excluded, each with a structural reason (Proof Burden):**
+- `All` — not generic at all; it wraps a fixed `bool` with no type parameter. Haskell's own `All` has kind `*`, not `* -> *`, so `Foldable All` isn't even expressible there — there is no instance to mirror, faithfully or otherwise.
+- `Reader[R, A]` — wraps `Callable[[R], A]`. Producing the `A` requires an `R` that doesn't exist independent of a caller supplying one; there is no canonical, finite enumeration to hand back. Same "functions aren't structurally comparable" reasoning already used to justify `Reader`'s deliberately-absent `__eq__` (see `docs/specs/reader.md`'s Equality section) — applies identically here to iteration.
+- `Proxy[A]`, `Star[F, A, B]` — not yet implemented in this codebase; out of scope by non-existence, not by exclusion. Will get their own Proof Burden reasoning if/when built (`Proxy` holds nothing at runtime, so likely excluded the same way `All` is here; `Star` wraps a function, likely excluded the same way `Reader` is).
+
+None of these types nominally inherit from `Foldable` — consistent with the Protocol's whole design point (see above), `__iter__` alone is what makes each structurally satisfy it, with zero explicit inheritance.
 
 ### A real bug caught in Phase 1: the "trampoline" as originally described doesn't work
 
@@ -88,11 +108,27 @@ Every function above puts the "action" argument first where one exists (`foldr(f
 
 ## Cross-Product audit (Compositional Invariance Matrix, per CLAUDE.md)
 
-`Foldable` is structural, not nominal, and none of Ekans's own shipped types currently implement `__iter__` — so there is no existing concrete instance shared between `Foldable` and any other type class in this codebase right now (per the Proof Burden, stated explicitly rather than silently skipped). The only "instances" available to test against this round are Python's own builtins (`list`, `tuple`, generators) and test-only illustrative types, which is exactly what the testing strategy below uses.
+The initial round had nothing to audit (per the Proof Burden note that stood in this section before the retrofit above). The retrofit changes that: seven concrete types now have real `__iter__` implementations, so this needs a genuine pass. Checked which retrofitted types nominally inherit each compatible type class directly (`issubclass`), not just structurally resemble one:
+
+**`Foldable` × `Functor`** — nominal `Functor` (directly or via `Monad`'s ancestry): `Identity`, `Const`, `Tuple2`, `Maybe`/`Just`/`Nothing`, `Either`/`Left`/`Right`. (`Sum`, `Product`, `Ap` are not `Functor` — no `fmap` — so this pair doesn't apply to them.) The genuine law: **`toList(fmap(f, xs)) == [f(y) for y in toList(xs)]`** — mapping then listing agrees with listing then mapping, i.e. `fmap` and the `Foldable` instance touch the same elements. Holds for every type in this list, verified by hand for each:
+- `Identity`/`Just`/`Right`: one element on both sides, trivially the same value run through `f`.
+- `Nothing`/`Left`: empty on both sides (`fmap` re-tags without touching anything, `__iter__` yields nothing either way).
+- `Const`: both sides empty regardless of `f` — `fmap` never had a `B` to apply `f` to, and `__iter__` never had a `B` to yield.
+- `Tuple2`: one element on both sides (`second`), `first` is untouched by both.
+
+This is a real property to test, not a formality — added as a Hypothesis property test per type below.
+
+**`Foldable` × `Extractable`** — nominal `Extractable`: `Identity`, `Const`, `Tuple2`, `Sum`, `Product`, `Ap`. The candidate law: **`toList(xs) == [extract(xs)]`** — `extract` and the `Foldable` instance agree on "the" contained value. Holds for `Identity`, `Tuple2`, `Sum`, `Product`, `Ap`, since each one's `extract` and `__iter__` both operate on the exact same field (`Ap`'s `extract` unwraps the same way its `__iter__` does — through the inner `Identity`). **Does not hold for `Const`**: `Const.extract()` returns the held `A`, but `Const`'s `Foldable` instance folds over the phantom `B` and is always empty — `extract` and `__iter__` touch two entirely different type parameters by construction, so there is no such law for `Const`, and none is claimed. Recorded here per the Proof Burden rather than silently tested-and-skipped; a dedicated test asserts the divergence explicitly (`toList(Const(...)) == []` regardless of what `extract` returns) so the exclusion is demonstrated, not just asserted in prose.
+
+**`Foldable` × `Pointed`** — nominal `Pointed` (via `Monad`'s ancestry): `Identity`, `Maybe`/`Just`/`Nothing`, `Either`/`Left`/`Right`. (`Const.point`/`Tuple2.point` exist as classmethods for the free-function pattern, per CLAUDE.md's conditional-instance design, but neither class nominally inherits `Pointed` — confirmed via `issubclass` — so this pair doesn't formally apply to them, even though `Tuple2.point`'s coherence happens to hold too as a side note.) The candidate law: **`toList(point(x)) == [x]`** — wrapping a value with `point` and then listing it recovers exactly that value. Holds for `Identity.point`, `Maybe.point` (always `Just`), and `Either.point` (always `Right`) — each unconditionally produces the "full" variant.
+
+**`Foldable` × `Semigroup`/`Monoid`** — nominal `Semigroup`/`Monoid`: `Sum`, `Product`, `Const`/`Identity`/`Tuple2`/`Reader` (conditionally, via non-nominal `mempty`/`mappend` free functions). No additional law beyond what's already covered above: for `Sum`/`Product`, `mappend`'s effect on the single element is already fully characterized by the `Extractable`×`Foldable` coherence law above (both `extract` and `toList` see the combined value post-`mappend`, same as pre-`mappend`) — there's no separate "Semigroup coherence" fact to state or test beyond that. Haskell itself has no general law connecting an arbitrary `Semigroup`/`Foldable` pair (e.g. list's `Semigroup` is `++`, entirely unrelated to how `Foldable` folds its elements) — reasoned through and recorded as a legitimate no-new-law outcome, not skipped for lack of looking.
+
+**`Foldable` × `Bind`/`Monad`** — nominal `Monad`: `Identity`, `Maybe`, `Either`. No new law: any relationship between `bind` and the `Foldable` instance for these specific single/zero-element types reduces immediately to `Monad`'s own laws (already tested in the `Monad` round) composed with the `Functor` coherence law above — there is nothing `Foldable`-specific left to state. Haskell has no general `Foldable`/`Monad` law either (`list`'s own `bind` flattens, which plenty of `Foldable` instances don't do at all). Recorded as reasoned-through, not silently assumed.
 
 ## Concrete instances in scope
 
-None — `Foldable` is satisfied structurally by existing iterables; no new concrete Ekans type is added or retrofitted this round.
+`Identity`, `Const`, `Just`, `Nothing`, `Left`, `Right`, `Tuple2`, `Sum`, `Product`, `Ap` — each gets a real `__iter__`, per the retrofit Design section above. `All` and `Reader` are explicitly excluded, with structural justification recorded there.
 
 ## Testing strategy
 
@@ -103,12 +139,15 @@ None — `Foldable` is satisfied structurally by existing iterables; no new conc
 - `foldMap`/`fold`/`fold1`'s `Monoid`/`Semigroup` integration tested against real `Monoid`/`Semigroup` test doubles, both non-empty and (for `foldMap`/`fold`) empty inputs.
 - `find` tested for short-circuiting (via a call-log double, matching this project's established technique for proving a function doesn't over-scan) and for its `Just[A] | Nothing[A]` return type staying precise.
 - `maximum`/`minimum`/`foldr1`/`foldl1`/`fold1` tested for the documented `ValueError` on empty input.
+- **Retrofit tests, per type**: `isinstance(x, Foldable)` now `True` (was `False` before, per each type's existing test suite); `toList`/`list(x)` example-based tests for every element shape (empty and non-empty, where applicable). Existing test files (`test_identity.py`, `test_const.py`, `test_maybe.py`, `test_either.py`, `test_tuple2.py`, `test_sum.py`, `test_product.py`, `test_ap.py`) each gain their own `__iter__`/`Foldable` tests rather than a new shared file, matching how each type's own test file already owns its other behaviors.
+- **Cross-Product law tests, per the audit above**: `Functor`×`Foldable` coherence (`toList(fmap(f, xs)) == [f(y) for y in toList(xs)]`) as a Hypothesis property test for `Identity`, `Const`, `Tuple2`, `Just`/`Nothing`, `Left`/`Right`. `Extractable`×`Foldable` coherence (`toList(xs) == [extract(xs)]`) as a Hypothesis property test for `Identity`, `Tuple2`, `Sum`, `Product`, `Ap`, plus one explicit example test on `Const` demonstrating the documented non-law (`extract` and `toList` diverge). `Pointed`×`Foldable` coherence (`toList(point(x)) == [x]`) as a Hypothesis property test for `Identity`, `Maybe`, `Either`.
 - 100% coverage, `mypy src tests --strict` clean, TDD throughout (red step shown before implementation), per-ticket signature review before implementation, Cumulative Regression against the full existing suite.
 
 ## Documentation requirements
 
 - `docs/HOWTO.md`: replace the `Foldable` stub in "Coming soon" with a real section. Since `Foldable` is neither part of Part 1's abstract `Functional` hierarchy nor a concrete type in Part 2's gallery, it gets a short **Part 3** of its own, positioned after Part 2 and before "Coming soon" — covering the Protocol's structural nature, the corrected stack-safety story (told plainly, including the wrong-first-attempt detail — this project's established honest-limitation style), the `FoldableABC` override mechanism, and the full function list with the deliberate naming/signature decisions (`and_`/`or_`, `maximumBy`'s `key`-function divergence, `find`'s `Maybe` return type).
 - `CLAUDE.md`'s "Why Foldable is a Protocol" section gets its trampoline description corrected in place, per the Phase 1 finding above — this is exactly the kind of correction the Implementation Protocol's own rules require documenting plainly when a real design gap surfaces mid-round.
+- **Retrofit**: `docs/HOWTO.md`'s Part 3 `Foldable` section gets a closing subsection noting which concrete types now satisfy `Foldable` (and the two structural exclusions), rather than leaving the "none of Ekans's own types satisfy Foldable" framing stale. Each individual type's own Part 2 gallery entry (`Identity`, `Const`, `Maybe`, `Either`, `Tuple2`, `Sum`, `Product`, `Ap`) gets a one- or two-line mention of its new `Foldable` instance where that type is introduced, not just in the Part 3 summary.
 
 ## Implementation constraints
 
@@ -118,9 +157,10 @@ None — `Foldable` is satisfied structurally by existing iterables; no new conc
 ## Out of scope
 
 - The `Applicative`/`Alternative`-based traversal family (`traverse_`, `for_`, `sequenceA_`, `sequence_`, `mapM_`, `forM_`, `asum`, `msum`) — per review, deferred to `Traversable`'s own round. These are effectful traversal, conceptually closer to `Traversable`'s domain even though Haskell files them under `Data.Foldable`; `asum`/`msum` specifically also need `Alternative`, which doesn't exist in this codebase at all yet.
-- Retrofitting any existing Ekans type with `__iter__` to become `Foldable` — not requested, and per the Cross-Product audit above, there's no existing type this would obviously apply to without inventing a new design question of its own.
 - Additional `FoldableABC` override hooks beyond `foldr`/`length`/`null` — deferred until a real type needs one, per the Design section above.
+- `Proxy`/`Star`'s eventual `Foldable` (non-)instances — deferred until those types exist at all; noted in the retrofit Design section above for when that happens.
+- Nominal `Foldable` inheritance for any retrofitted type — deliberately not done; `Foldable`'s entire design point (see "Why Foldable is a Protocol") is structural satisfaction via `__iter__` alone, with zero explicit inheritance, for every type this project or its users define.
 
 ## Open questions / risks
 
-- None outstanding — every design decision here (the covariance requirement, the corrected stack-safety mechanism, the `Type[M]` requirement for `foldMap`/`fold`, the `SupportsLt` protocol, `find`'s `Maybe` return type) was verified directly against `mypy --strict` and at runtime before being written down.
+- None outstanding — every design decision here (the covariance requirement, the corrected stack-safety mechanism, the `Type[M]` requirement for `foldMap`/`fold`, the `SupportsLt` protocol, `find`'s `Maybe` return type, the retrofit's scope/exclusions and Cross-Product laws) was verified directly against `mypy --strict` and at runtime (or, for the retrofit's laws, by hand-derivation matching each type's already-verified `fmap`/`extract`/`point` behavior) before being written down.

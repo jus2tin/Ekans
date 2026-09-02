@@ -14,6 +14,7 @@ from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
 from ekans.bind import Bind, bind
 from ekans.extractable import Extractable
+from ekans.foldable import Foldable, toList
 from ekans.functor import fmap
 from ekans.identity import Identity
 from ekans.monad import Monad
@@ -270,3 +271,32 @@ def test_is_a_monad() -> None:
 
 def test_satisfies_the_monad_law() -> None:
     assert_monad_law(Identity.point, st.integers())
+
+
+def test_is_a_foldable() -> None:
+    assert isinstance(Identity(value=1), Foldable)
+
+
+def test_iterates_the_wrapped_value() -> None:
+    assert toList(Identity(value=1)) == [1]
+
+
+@given(st.integers())
+def test_functor_foldable_coherence(value: int) -> None:
+    # toList(fmap(f, xs)) == [f(y) for y in toList(xs)] -- see
+    # docs/specs/foldable.md's retrofit Cross-Product audit.
+    f = str
+    box = Identity(value=value)
+    assert toList(box.fmap(f)) == [f(y) for y in toList(box)]
+
+
+def test_extractable_foldable_coherence() -> None:
+    # toList(xs) == [extract(xs)] -- same section.
+    box = Identity(value=5)
+    assert toList(box) == [box.extract()]
+
+
+@given(st.integers())
+def test_pointed_foldable_coherence(value: int) -> None:
+    # toList(point(x)) == [x] -- same section.
+    assert toList(Identity.point(value)) == [value]

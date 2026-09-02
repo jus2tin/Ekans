@@ -2,7 +2,7 @@
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Generic, TypeVar, Union
+from typing import Callable, Generic, Iterator, TypeVar, Union
 
 from ekans.monad import Monad
 
@@ -89,6 +89,16 @@ class Either(Monad[R], Generic[L, R]):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def __iter__(self) -> Iterator[R]:
+        """Yield the `Right` value, if this is a `Right`.
+
+        Returns:
+            An iterator yielding `self.value` for a `Right`, nothing
+            for a `Left`.
+        """
+        raise NotImplementedError
+
 
 @dataclass(frozen=True, eq=False)
 class Left(Either[L, R], Generic[L, R]):
@@ -164,6 +174,14 @@ class Left(Either[L, R], Generic[L, R]):
             The hash of the wrapped value.
         """
         return hash(self.value)
+
+    def __iter__(self) -> Iterator[R]:
+        """Yield nothing -- `Left` has no `R` value.
+
+        Returns:
+            An empty iterator.
+        """
+        return iter(())
 
 
 @dataclass(frozen=True, eq=False)
@@ -258,3 +276,11 @@ class Right(Either[L, R], Generic[L, R]):
             The hash of the wrapped value.
         """
         return hash(self.value)
+
+    def __iter__(self) -> Iterator[R]:
+        """Yield the wrapped value.
+
+        Returns:
+            An iterator yielding exactly `self.value`.
+        """
+        yield self.value
