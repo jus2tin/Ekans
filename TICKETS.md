@@ -435,3 +435,24 @@ Add `src/ekans/do.py`'s `do` decorator per the spec: `ParamSpec`-forwarding tram
 Tests (`tests/test_do.py`): Hypothesis-driven equivalence tests asserting a `@do`-decorated computation over `Identity` and over `Reader` produces the same result as the same computation written as an explicit manual `.bind()` chain. A short-circuit test using a local, test-file-only `_Just`/`_Nothing` double (matching `test_monad.py`'s illustrative-type convention, not exported) confirming a do-block halts at the first `_Nothing()` and never executes code after that `yield`. Every do-block in the test file follows the spec's required style: an explicit outer `Generator[Monad[T], Any, Monad[U]]` return annotation, and an explicit local type annotation on every `yield` assignment.
 
 Documentation: new `docs/HOWTO.md` section introducing `@do`, written in the required style, stating the `Any`-wall limitation and its mitigation plainly (same honest treatment as the Monoid erasure wall / `Bind`'s free-function precision gap elsewhere in the doc), with runnable `Identity` and `Reader` examples and a short conceptual paragraph on short-circuiting.
+
+## Const Applicative
+
+Spec: [`docs/specs/const-applicative.md`](docs/specs/const-applicative.md)
+
+### T-055: `Const.point` classmethod + `ap` overload
+
+**Status:** Closed
+
+Add `Const.point(value_type: Type[S], value: B) -> Const[S, B]` (`S` bound to `Monoid`) as a classmethod directly on `Const`, mirroring `Const.mempty`'s exact shape and reasoning -- `value` is accepted and unconditionally discarded, same precedent as `Const.fmap`'s unused `f`. Add a new `@overload` (`S` bound to `Semigroup`) to the existing free `ap` function in `apply.py`: `ap(f: Const[S, Callable[[A], B]], x: Const[S, A]) -> Const[S, B]`, dispatching to `Const(value=x.value.mappend(f.value))`. No nominal `Pointed[B]`/`Apply[B]` inheritance -- proven impossible in the spec's Design section, not merely skipped.
+
+Tests (`tests/test_const.py`): construction and precision for `Const.point`, including an explicit assertion that the passed `value` has no effect on the result. Construction and precision for the `ap` overload, plus a genuine `mypy`-level rejection test for a non-`Semigroup` `A` (mirroring `test_mappend_rejects_mismatched_container_types_at_runtime`'s style). The `extract(ap(f, x)) == x.extract().mappend(f.extract())` law from the spec's Cross-Product audit, as a Hypothesis property test. Explicitly no `assert_applicative_law`/`assert_apply_law` usage against `Const` (see the spec's Cross-Product audit for why).
+
+Documentation: short addition to `docs/HOWTO.md`'s existing `Const` section covering `point`/`ap`, stated with the same plain-limitation honesty as the existing `Semigroup`/`Monoid` framing there -- `Const` still never "is" an `Applicative`.
+
+### T-056: `liftA2` overload for `Const`
+
+**Status:** Open
+**Depends on:** T-055
+
+Add a new `@overload` (`S` bound to `Semigroup`) to the existing free `liftA2` function in `applicative.py`: `liftA2(f: Callable[[A, B], C], fa: Const[S, A], fb: Const[S, B]) -> Const[S, C]`, dispatching to `Const(value=fa.value.mappend(fb.value))`. Example-based tests plus a precision (`reveal_type`) probe, deleted after use. Short `docs/HOWTO.md` addition alongside T-055's.

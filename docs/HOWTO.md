@@ -208,7 +208,20 @@ a == b
 
 Same mechanism as `Identity`'s type-safe equality above, just extended to two type parameters instead of one — mypy's invariance check works purely at the type level, so it catches the mismatch on `B` even though `B` never shows up in a runtime attribute to compare.
 
-**Note for later:** `Const` still doesn't get a `Pointed` instance — `Monoid` now exists (see that section below), so the blocker's gone, but retrofitting `Const` is its own follow-up round rather than bundled in here. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source.
+**`point`/`ap`: Applicative-shaped, but never nominally `Applicative`.** In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. Ekans hits a real, verified wall trying to give `Const` that instance nominally: `ap` needs `A: Semigroup` to combine both sides' held values, and `point` needs `A: Monoid` to conjure one from nothing — neither constraint can live on `Apply[B]`/`Pointed[B]`'s ordinary, unconstrained type parameter, the same way `Semigroup`/`Monoid` themselves couldn't (see above). So both stay conditional, exactly like `mappend`/`mempty` already are:
+
+```python
+a: Const[_MonoidBox, str] = Const.point(_MonoidBox, "ignored")
+a  # Const(value=_MonoidBox.mempty()) -- "ignored" never touches the result
+
+from ekans.apply import ap
+
+x: Const[_Box, int] = Const(value=_Box(value=1))
+f: Const[_Box, Callable[[int], str]] = Const(value=_Box(value=2))
+ap(f, x)  # Const(value=_Box(value=3)) -- both held values combined via mappend
+```
+
+`Const.point` is a classmethod, mirroring `Const.mempty` exactly — it takes a `value` purely to keep the familiar `Pointed.point`-shaped call site, then throws it away unconditionally, same as `fmap`'s `f`. `ap` lives as a new case on the *same* free function `Identity`/`Reader` already use — `Const` never has a real `.ap()` method to call, so it can't delegate the way they do; instead it directly `mappend`s both sides' held values, which is exactly what `ap` degenerates to once no `B` value ever gets touched. Worth being honest about what this *isn't*: `isinstance(Const(...), Applicative)` is still `False`, same as `isinstance(Const(...), Monoid)` already was — `Const` satisfies the shape of both operations, never the real thing.
 
 **Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section below for a real, runnable example.
 

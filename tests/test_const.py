@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+from typing import Callable
 
 import pytest
 from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
+from ekans.apply import ap
 from ekans.const import Const
 from ekans.extractable import Extractable
 from ekans.functor import fmap
@@ -163,3 +165,48 @@ def test_mempty_extract_equals_the_value_types_own_mempty() -> None:
     # Cross-Product audit section.
     a: Const[_MonoidBox, str] = Const.mempty(_MonoidBox)
     assert a.extract() == _MonoidBox.mempty()
+
+
+def test_point_constructs_a_const_wrapping_the_identity_element() -> None:
+    a: Const[_MonoidBox, str] = Const.point(_MonoidBox, "ignored")
+    assert a == Const(value=_MonoidBox(value=0))
+
+
+@given(st.text(), st.text())
+def test_point_discards_the_passed_value(first: str, second: str) -> None:
+    # docs/specs/const-applicative.md's Design section: `value` is
+    # accepted purely for Pointed.point's conventional shape, then
+    # unconditionally discarded -- the result never depends on it.
+    a: Const[_MonoidBox, str] = Const.point(_MonoidBox, first)
+    b: Const[_MonoidBox, str] = Const.point(_MonoidBox, second)
+    assert a == b
+
+
+def test_ap_combines_the_held_semigroup_values() -> None:
+    x: Const[_Box, int] = Const(value=_Box(value=1))
+    f: Const[_Box, Callable[[int], str]] = Const(value=_Box(value=2))
+    assert ap(f, x) == Const(value=_Box(value=3))
+
+
+def test_ap_rejects_a_non_semigroup_value_type_at_runtime() -> None:
+    x: Const[int, int] = Const(value=1)
+    f: Const[int, Callable[[int], str]] = Const(value=2)
+    with pytest.raises(AttributeError):
+        # No overload admits a Const held-value type without a
+        # Semigroup bound -- mypy correctly rejects this at the call
+        # site ([type-var]), so the ignore comment below deliberately
+        # bypasses that to exercise the runtime failure: plain `int`
+        # has no `.mappend()` method to combine the two sides with.
+        ap(f, x)  # type: ignore[type-var]
+
+
+@given(st.integers(), st.integers())
+def test_ap_extract_homomorphism(a: int, b: int) -> None:
+    # Apply/Extractable, non-nominal form -- per the spec's
+    # Cross-Product audit section: extract(ap(f, x)) ==
+    # x.extract().mappend(f.extract()). Const's ap never applies a
+    # function (there's no B value to apply anything to); it's a
+    # mappend homomorphism instead, directly by construction.
+    x: Const[_Box, int] = Const(value=_Box(value=a))
+    f: Const[_Box, Callable[[int], str]] = Const(value=_Box(value=b))
+    assert ap(f, x).extract() == x.extract().mappend(f.extract())
