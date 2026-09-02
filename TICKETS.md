@@ -397,7 +397,9 @@ Spec: [`docs/specs/monad.md`](docs/specs/monad.md)
 **Status:** Closed
 **Depends on:** T-015 (Applicative ABC), T-046 (Bind ABC)
 
-Add `src/ekans/monad.py` with `Monad[A_co](Applicative[A_co], Bind[A_co], Generic[A_co])` per the spec: pure composition, no new abstract methods. Verified in Phase 1 that the MRO resolves cleanly despite `Applicative` and `Bind` both independently reaching `Apply`, and that no `fmap`/`ap`/`bind` re-declaration is needed (unlike `Applicative`'s own re-declaration from `Apply`). Includes the real `docs/HOWTO.md` `Monad` section.
+Add `src/ekans/monad.py` with `Monad[A_co](Applicative[A_co], Bind[A_co], Generic[A_co])` per the spec: pure composition. Verified in Phase 1 that the MRO resolves cleanly despite `Applicative` and `Bind` both independently reaching `Apply`. Includes the real `docs/HOWTO.md` `Monad` section.
+
+**Amended during T-051:** the initial "no `bind` re-declaration needed" finding was verified only against a concrete subclass's own chain, not the *abstract* `Monad[A]` handle the law helper actually needs. Confirmed directly that a `.bind()` call on a bare `Monad[A]`-typed value resolves to the inherited `Bind[B]`, not `Monad[B]`, without a re-declaration -- same gap `Applicative.ap`'s own re-declaration from `Apply` already exists to close. Fixed by adding `Monad`'s own `bind` re-declaration (narrowing `Bind[B]` to `Monad[B]`, `# type: ignore[override]`). See the spec's Design section correction note.
 
 ### T-051: Monad law-checking helper
 
