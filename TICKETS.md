@@ -513,3 +513,28 @@ Documentation: new `docs/HOWTO.md` `Either` section covering the sealed shape an
 **Depends on:** T-060
 
 Per `docs/specs/do.md`'s original follow-up (which named both `Maybe` and `Either`): add one additional test to `tests/test_do.py` using real `Left`/`Right` confirming a `@do` block halts at the first `Left` and never resumes past it. Short addition to `docs/HOWTO.md`'s existing `@do` section noting the second real example now exists.
+
+## Tuple2
+
+Spec: [`docs/specs/tuple2.md`](docs/specs/tuple2.md)
+
+### T-062: `Tuple2` core type
+
+**Status:** Closed
+
+New file `src/ekans/tuple2.py`: `Tuple2[A, B]` (`first: A`, `second: B`), nominal `Functor[B]` only (unconditional -- `fmap` never touches `A`). Nominal `Apply`/`Applicative`/`Bind` proven impossible (same wall `Const` hit, verified fresh: `"A" has no attribute "mappend"` on a naive attempt) -- so, per the spec's Design section, conditional/free-function-and-classmethod operations instead, mirroring `Const`'s established playbook exactly: `Tuple2.point(value_type: Type[S], value: B) -> Tuple2[S, B]` (`S` bound `Monoid`, classmethod alongside `Extractable`; unlike `Const.point`, `value` is genuinely used, not discarded -- `pure x = (mempty, x)`) plus new `Tuple2` overloads (`S` bound `Semigroup`) on the existing shared free `ap`/`liftA2`/`bind` functions, each doing real work (real function application on `second`, real `mappend` on `first`) -- not `Const`'s degenerate case, verified at runtime. Nominal `Extractable[B]` (`extract() -> B`, matching `Functor`'s bias) -- unlike `Const`, all three standard cross-class laws hold in their full, undiluted form (`Pointed`/`Extractable` round-trip, `Apply`/`Extractable` commutation, `Bind`/`Extractable`), verified directly rather than assumed. Type-safe `__eq__`/`__hash__` checking both type parameters independently (`Const`'s two-parameter Equality convention).
+
+Tests (`tests/test_tuple2.py`): construction, equality/hash, immutability. `assert_functor_laws` applies directly (nominal `Functor`). No `assert_apply_law`/`assert_applicative_law`/`assert_bind_law` (non-nominal, same reasoning as `Const`'s testing strategy). Direct Hypothesis property tests for the `Applicative` laws (identity, homomorphism, interchange, composition) against the free `point`/`ap` -- following through on `docs/specs/const-applicative.md`'s own flagged "worth a second look" open question, meaningful here since `Tuple2`'s `ap` does real work. The three `Extractable` cross-product laws as direct property tests.
+
+Documentation: new `docs/HOWTO.md` `Tuple2` section -- the nominal-`Functor`-but-conditional-everything-else shape, contrasted directly against `Const` (real capability vs. `Const`'s degenerate case), and the three `Extractable` laws holding in full.
+
+### T-063: `Tuple2`'s own pointwise `Semigroup`/`Monoid`
+
+**Status:** Closed
+**Depends on:** T-062
+
+Add a `Tuple2` overload to the existing shared free `mappend` (`semigroup.py`) needing **two independent bounds simultaneously** (`SA`/`SB`, both bound `Semigroup`) -- a genuinely new pattern, not yet built anywhere in this codebase: `mappend(a, b) = Tuple2(first=a.first.mappend(b.first), second=a.second.mappend(b.second))`. Add a `mempty(a_type: Type[MA], b_type: Type[MB]) -> Tuple2[MA, MB]` classmethod directly on `Tuple2`, alongside `point` (`MA`/`MB` independently bound `Monoid`).
+
+Tests: `mappend`/`mempty` example and property tests (associativity, left/right identity) mirroring the existing conditional-instance shape, plus a genuine `mypy`-level rejection test for a pair where only *one* side satisfies the `Monoid` bound (the concrete verification that the two bounds are independently enforced, not just nominally declared). The `mappend(x, y).extract() == x.extract().mappend(y.extract())` law from the spec's Cross-Product audit, as a property test.
+
+Documentation: `docs/HOWTO.md` addition to the `Tuple2` section explaining the two-independent-bound pattern, contrasted with every prior conditional instance's single bound.

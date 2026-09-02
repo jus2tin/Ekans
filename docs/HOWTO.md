@@ -28,6 +28,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [do: turning bind chains into procedural-looking code](#do-turning-bind-chains-into-procedural-looking-code)
 - [Maybe: a value that might not be there](#maybe-a-value-that-might-not-be-there)
 - [Either: L or R, biased to R](#either-l-or-r-biased-to-r)
+- [Tuple2: a pair, Const's closest sibling](#tuple2-a-pair-consts-closest-sibling)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -982,6 +983,55 @@ def with_either() -> Generator[Monad[int], Any, Monad[int]]:
 
 with_either()  # Left(value='boom')
 ```
+
+## Tuple2: a pair, Const's closest sibling
+
+`Tuple2[A, B]` is Haskell's `(,) a b` — an honest pair, holding a real `A` and a real `B` at once. It looks, at first glance, like it should sit next to `Maybe`/`Either` in this guide. It doesn't: once you actually try to build it, `Tuple2` turns out to be `Const`'s closest sibling in this codebase, not `Either`'s.
+
+```python
+from ekans.tuple2 import Tuple2
+
+pair = Tuple2(first="env", second=5)
+pair.fmap(str)   # Tuple2(first='env', second='5')
+pair.extract()   # 5
+```
+
+`Functor`/`Extractable` are nominal, unconditional, and biased to `second` — exactly `Const`'s own bias, and for the same reason: `fmap` never has any reason to touch `first`.
+
+**Where it stops resembling `Const`: the conditional operations do real work.** `Const`'s conditional `ap`/`point` (see that section above) are degenerate — `B` is permanently phantom there, so nothing real ever happens beyond a `mappend`. `Tuple2` holds a genuine `second`, so its own conditional, free-function-based operations — same non-nominal shape `Const`'s use, for the identical structural reason (a naive nominal attempt hits the exact same `"A" has no attribute "mappend"` wall) — actually apply the function and combine `first` for real:
+
+```python
+from ekans.apply import ap
+from ekans.bind import bind
+
+x = Tuple2(first=Box(value=1), second=5)
+f = Tuple2(first=Box(value=2), second=str)
+ap(f, x)   # Tuple2(first=Box(value=3), second='5') -- both mappend AND f(5) really happened
+
+bind(lambda a: Tuple2(first=Box(value=10), second=str(a)), x)
+# Tuple2(first=Box(value=11), second='5')
+```
+
+`Tuple2.point(value_type, value)` is the other half of the contrast: unlike `Const.point`, which discards its argument entirely, `Tuple2.point`'s `value` becomes the real `second` field — `pure x = (mempty, x)`.
+
+**Because of that, all three standard `Extractable` cross-class laws hold here in their full, original form** — not the weaker `mappend`-only substitutes `Const` needed:
+
+```
+extract(point(a)) == a                              # Pointed/Extractable
+x.ap(f).extract() == f.extract()(x.extract())        # Apply/Extractable
+m.bind(f).extract() == f(m.extract()).extract()      # Bind/Extractable
+```
+
+The middle one is worth pausing on: it's the *same* law `Identity` satisfies, not `Const`'s degenerate one — because `Tuple2`'s `ap` genuinely applies the wrapped function, `extract` genuinely commutes with it, the same way it does for a real `Applicative`.
+
+`Tuple2` gets its own `Semigroup`/`Monoid` too — separate from the `A`-only bound its `point`/`ap`/`bind` need — combining both fields pointwise:
+
+```
+(a1, b1) <> (a2, b2) = (a1 <> a2, b1 <> b2)
+mempty = (mempty, mempty)
+```
+
+This is the first conditional instance in this codebase needing *two* independent bounds at once (`A: Semigroup` *and* `B: Semigroup`) rather than one — verified directly that both are enforced independently: a pair where only one side is a genuine `Monoid` (the other merely a `Semigroup`) is a real `mypy --strict` rejection when building `mempty`, not a silent pass.
 
 ## Coming soon
 

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ekans.identity import Identity
     from ekans.maybe import Just, Maybe, Nothing
     from ekans.reader import Reader
+    from ekans.tuple2 import Tuple2
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
@@ -60,6 +61,8 @@ def fmap(f: Callable[[A], B], functor: "Right[H, A]") -> "Right[H, B]": ...
 def fmap(
     f: Callable[[A], B], functor: "Either[H, A]"
 ) -> "Union[Left[H, B], Right[H, B]]": ...
+@overload
+def fmap(f: Callable[[A], B], functor: "Tuple2[H, A]") -> "Tuple2[H, B]": ...
 @overload
 def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]: ...
 def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]:  # noqa: E302
