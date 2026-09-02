@@ -452,7 +452,7 @@ Documentation: short addition to `docs/HOWTO.md`'s existing `Const` section cove
 
 ### T-056: `liftA2` overload for `Const`
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-055
 
 Add a new `@overload` (`S` bound to `Semigroup`) to the existing free `liftA2` function in `applicative.py`: `liftA2(f: Callable[[A, B], C], fa: Const[S, A], fb: Const[S, B]) -> Const[S, C]`, dispatching to `Const(value=fa.value.mappend(fb.value))`. Example-based tests plus a precision (`reveal_type`) probe, deleted after use. Short `docs/HOWTO.md` addition alongside T-055's.

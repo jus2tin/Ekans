@@ -447,6 +447,8 @@ liftA2(lambda a, b: a + b, Identity(value=2), Identity(value=3))  # Identity(val
 
 Like `ap`, this needs its own `@overload` per concrete type to stay precise — a version typed only against the abstract `Applicative[A]`/`Applicative[B]` type-checks fine but silently hands back the loose `Applicative[C]` for every call, even a plain `Identity` one. That's worth knowing about generally: a free function that touches concrete types only through an abstract handle can look perfectly type-safe while quietly losing precision, with no error to catch it — the exact trap `Pointed.point`'s free-function form fell into and got rejected for entirely (see `Pointed` above). `liftA2` had a way out `point` didn't (a real generic implementation, so the overloads could be added rather than dropping the free function altogether), but the underlying lesson is the same.
 
+`liftA2` also gets a `Const` case, same conditional-on-`A`-being-a-`Semigroup` story as `ap` above (see `Const`'s own section above): `liftA2(f, Const(value=x), Const(value=y))` combines `x` and `y` via `mappend`, `f` never called — the same reasoning `Const.fmap` and `Const.ap` already establish, since there's no `B` value on either side for `f` to actually touch.
+
 ## Semigroup: squishing two into one
 
 Every type class so far has been about boxes: things that hold a value and know how to be mapped over, pointed into, or applied through. `Semigroup` is different — it's not about boxes at all. It's a property a plain type can have: knowing how to combine two of itself into a third.

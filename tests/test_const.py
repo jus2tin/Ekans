@@ -6,6 +6,7 @@ from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
+from ekans.applicative import liftA2
 from ekans.apply import ap
 from ekans.const import Const
 from ekans.extractable import Extractable
@@ -210,3 +211,10 @@ def test_ap_extract_homomorphism(a: int, b: int) -> None:
     x: Const[_Box, int] = Const(value=_Box(value=a))
     f: Const[_Box, Callable[[int], str]] = Const(value=_Box(value=b))
     assert ap(f, x).extract() == x.extract().mappend(f.extract())
+
+
+@given(st.integers(), st.integers())
+def test_liftA2_combines_the_held_semigroup_values(a: int, b: int) -> None:
+    x: Const[_Box, int] = Const(value=_Box(value=a))
+    y: Const[_Box, str] = Const(value=_Box(value=b))
+    assert liftA2(lambda p, q: f"{p}{q}", x, y) == Const(value=_Box(value=a + b))
