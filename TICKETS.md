@@ -162,34 +162,34 @@ Spec: [`docs/specs/semigroup.md`](docs/specs/semigroup.md)
 
 ### T-020: Semigroup ABC
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/semigroup.py` with the `Semigroup(Functional)` abstract class per the spec: abstract `mappend(self, other: Self) -> Self`, no override narrowing needed anywhere thanks to `typing.Self` (verified in Phase 1 — see spec's Design section). No free `mappend` function yet — that's T-022, since it needs at least one concrete container overload to be worth introducing (same reasoning as `fmap`'s T-001/`ap`'s T-012). Includes the real `docs/HOWTO.md` `Semigroup` section, replacing the current stub.
 
 ### T-021: Semigroup associativity law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020
 
 `tests/semigroup_laws.py`: `assert_semigroup_law(make, values, equal=None)` per the spec's Testing strategy — the single associativity law. T-022's Identity test and later tickets are its callers.
 
 ### T-022: `mappend` free function + Identity support
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020, T-021
 
-Add the free `mappend(a, b)` function to `src/ekans/semigroup.py` with its first `@overload`, `Identity[S] -> Identity[S] -> Identity[S]` bound by `S = TypeVar("S", bound=Semigroup)` (per the spec's Design section — `Identity` itself does not inherit `Semigroup`). A small local illustrative `Semigroup`-implementing type lives in the test module for this and all following Semigroup tickets, per the spec's note that no shipped Ekans type is unconditionally a Semigroup. Law test via the T-021 helper. Update `docs/HOWTO.md`'s `Identity` section with a short `mappend` addition.
+Add the free `mappend(a, b)` function to `src/ekans/semigroup.py`, typed `Identity[S] -> Identity[S] -> Identity[S]` and bound by `S = TypeVar("S", bound=Semigroup)` (per the spec's Design section — `Identity` itself does not inherit `Semigroup`). Ships as a single plain-typed function, *not* an `@overload` — mypy rejects a single-variant overload set (`error: Single overload definition, multiple required  [misc]`, confirmed during this ticket; see the spec's Design section correction note), same lesson as `fmap`'s T-001/`ap`'s T-012. Becomes a real `@overload` set once T-023 adds `Const`'s variant. A small local illustrative `Semigroup`-implementing type lives in the test module for this and all following Semigroup tickets, per the spec's note that no shipped Ekans type is unconditionally a Semigroup. Law test via the T-021 helper. Update `docs/HOWTO.md`'s `Identity` section with a short `mappend` addition.
 
 ### T-023: `Const[A, B]` `mappend` support
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-022
 
-Add the `Const[S, A] -> Const[S, A] -> Const[S, A]` overload to the free `mappend` function: `Const x mappend Const y = Const (x mappend y)`, ignoring the phantom second parameter, per the spec's Design section. Law test via the T-021 helper. Update `docs/HOWTO.md`'s `Const` section with a short `mappend` addition.
+Add the `Const[S, A] -> Const[S, A] -> Const[S, A]` overload to the free `mappend` function, converting it from T-022's single plain-typed function into a real two-variant `@overload` set: `Const x mappend Const y = Const (x mappend y)`, ignoring the phantom second parameter, per the spec's Design section. The implementation body dispatches on `isinstance` (typed with a real `Union[Identity[S], Const[S, A]]`, not `Any`) rather than delegating to a shared method, since neither `Identity` nor `Const` nominally implements `Semigroup` — see the spec's Design section correction note. Law test via the T-021 helper. Update `docs/HOWTO.md`'s `Const` section with a short `mappend` addition.
 
 ### T-024: `Reader[R, A]` `mappend` support
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-022
 
 Add the `Reader[R, S] -> Reader[R, S] -> Reader[R, S]` overload to the free `mappend` function: pointwise combination, `(f mappend g)(r) = f(r) mappend g(r)`, per the spec's Design section. Law test via the T-021 helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s Functor/Apply law tests). Update `docs/HOWTO.md`'s `Reader` section with a short `mappend` addition.

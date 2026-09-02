@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable
 
 import pytest
@@ -11,6 +12,21 @@ from ekans.applicative import Applicative
 from ekans.apply import ap
 from ekans.functor import Functor, fmap
 from ekans.reader import Reader, const
+from ekans.semigroup import Semigroup, mappend
+
+
+@dataclass(frozen=True, eq=False)
+class _Box(Semigroup):
+    value: int
+
+    def mappend(self, other: "_Box") -> "_Box":
+        return _Box(value=self.value + other.value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
 
 
 def test_const_returns_the_value_ignoring_the_argument() -> None:
@@ -112,3 +128,24 @@ def test_is_an_applicative() -> None:
 
 def test_satisfies_the_applicative_laws() -> None:
     assert_applicative_law(Reader.point, st.integers(), equal=_compare_readers)
+
+
+def test_mappend_combines_pointwise_across_the_environment() -> None:
+    f: Reader[str, _Box] = Reader(run=lambda env: _Box(value=1))
+    g: Reader[str, _Box] = Reader(run=lambda env: _Box(value=2))
+    assert mappend(f, g).run("anything") == _Box(value=3)
+
+
+@given(st.integers(), st.integers(), st.integers())
+def test_free_mappend_is_associative(a: int, b: int, c: int) -> None:
+    # Same reasoning as test_identity.py's/test_const.py's
+    # test_free_mappend_is_associative: Reader doesn't nominally
+    # implement Semigroup, so assert_semigroup_law doesn't apply here.
+    # Can't reuse _compare_readers either -- it's typed Functor[int]
+    # specifically, and these Readers produce _Box, not int.
+    x: Reader[int, _Box] = Reader(run=lambda env: _Box(value=a + env))
+    y: Reader[int, _Box] = Reader(run=lambda env: _Box(value=b + env))
+    z: Reader[int, _Box] = Reader(run=lambda env: _Box(value=c + env))
+    lhs = mappend(mappend(x, y), z)
+    rhs = mappend(x, mappend(y, z))
+    assert all(lhs.run(env) == rhs.run(env) for env in range(-5, 5))

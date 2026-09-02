@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable
 
 import pytest
@@ -11,6 +12,21 @@ from ekans.applicative import Applicative
 from ekans.apply import ap
 from ekans.functor import fmap
 from ekans.identity import Identity
+from ekans.semigroup import Semigroup, mappend
+
+
+@dataclass(frozen=True, eq=False)
+class _Box(Semigroup):
+    value: int
+
+    def mappend(self, other: "_Box") -> "_Box":
+        return _Box(value=self.value + other.value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
 
 
 def test_holds_the_wrapped_value() -> None:
@@ -93,3 +109,22 @@ def test_is_an_applicative() -> None:
 
 def test_satisfies_the_applicative_laws() -> None:
     assert_applicative_law(Identity.point, st.integers())
+
+
+def test_mappend_combines_the_wrapped_semigroup_values() -> None:
+    a = Identity(value=_Box(value=1))
+    b = Identity(value=_Box(value=2))
+    assert mappend(a, b) == Identity(value=_Box(value=3))
+
+
+@given(st.integers(), st.integers(), st.integers())
+def test_free_mappend_is_associative(a: int, b: int, c: int) -> None:
+    # assert_semigroup_law assumes a nominal `.mappend()` method, which
+    # Identity deliberately doesn't have (see the spec's Design section
+    # -- Identity's Semigroup instance is free-function-only); testing
+    # the same associativity law directly against the free function
+    # instead.
+    x = Identity(value=_Box(value=a))
+    y = Identity(value=_Box(value=b))
+    z = Identity(value=_Box(value=c))
+    assert mappend(mappend(x, y), z) == mappend(x, mappend(y, z))

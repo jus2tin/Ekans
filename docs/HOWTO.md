@@ -16,6 +16,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Reader: a box that's actually a function](#reader-a-box-thats-actually-a-function)
 - [Apply: when the function is also in a box](#apply-when-the-function-is-also-in-a-box)
 - [Applicative: Pointed and Apply, together](#applicative-pointed-and-apply-together)
+- [Semigroup: squishing two into one](#semigroup-squishing-two-into-one)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -116,6 +117,8 @@ Identity(value=5).ap(wrapped_fn)  # Identity(value='5')
 
 Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, `point`/`ap`/`fmap` already do all the work.
 
+**Conditionally a `Semigroup`, but only via the free function.** `Identity[A]` can `mappend` two of itself precisely when `A` can — `Identity(value=1)` and `Identity(value=2)` combine fine if the wrapped value knows how, but there's no principled way to combine `Identity(value="a")` and `Identity(value="b")` unless `str` itself is a `Semigroup` (it isn't, here). Because that constraint lives on `A`, not on `Identity` itself, `Identity` never nominally inherits `Semigroup` — instead, `ekans.semigroup.mappend(a, b)` is a free function bounded by `TypeVar("S", bound=Semigroup)`, so calling it on `Identity[str]` is a `mypy --strict` error, not a runtime crash. See the `Semigroup` section below for the full story.
+
 ## Functor: doing something to what's inside
 
 `Functor` is the first real capability in the hierarchy — everything before it (`Functional`, `Identity`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.
@@ -191,6 +194,8 @@ a == b
 Same mechanism as `Identity`'s type-safe equality above, just extended to two type parameters instead of one — mypy's invariance check works purely at the type level, so it catches the mismatch on `B` even though `B` never shows up in a runtime attribute to compare.
 
 **Note for later:** `Const` doesn't get a `Pointed` instance yet, and won't until `Semigroup`/`Monoid` exist. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. No `Monoid`, no honest `Const.point`.
+
+**Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section below for a real, runnable example.
 
 ## Pointed: getting a value into a box
 
@@ -292,6 +297,8 @@ If the environment leaking into both sides sounds obvious, it's worth checking: 
 
 Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, same as `Identity`.
 
+**Conditionally a `Semigroup`, pointwise this time.** Same story as `Identity` and `Const` above — `Reader[R, A]` can `mappend` two of itself precisely when `A` can, and never nominally inherits `Semigroup` for the same reason. The combination happens *pointwise*: run both sides against the same environment, then `mappend` the two results — `mappend(f, g).run(r) == f.run(r).mappend(g.run(r))`. It shares the same three-way `ekans.semigroup.mappend` overload as `Identity`/`Const`. See the `Semigroup` section below for a real, runnable example.
+
 ## Apply: when the function is also in a box
 
 `fmap` covers a lot of ground, but it has one blind spot: the function you're mapping with always has to be a plain, ordinary function sitting outside any box. What happens when the function itself is *also* stuck inside a box? That's `Apply`.
@@ -391,13 +398,75 @@ Notice the class declaration: just `Applicative[A]`, nothing else — no separat
 
 That last one is worth being honest about: it's the identical formula to `Apply`'s own associativity law — testing it again here isn't finding new bugs so much as confirming `point` doesn't quietly break something `ap` alone already got right.
 
+## Semigroup: squishing two into one
+
+Every type class so far has been about boxes: things that hold a value and know how to be mapped over, pointed into, or applied through. `Semigroup` is different — it's not about boxes at all. It's a property a plain type can have: knowing how to combine two of itself into a third.
+
+```python
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+from ekans.semigroup import Semigroup
+
+A = TypeVar("A")
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Semigroup, Generic[A]):
+    value: A
+
+    def mappend(self, other: "Box[A]") -> "Box[A]":
+        return Box(value=self.value + other.value)  # type: ignore[operator]
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and bool(self.value == other.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+Box(value=1).mappend(Box(value=2))  # Box(value=3)
+```
+
+`mappend` is Haskell's historical name for `<>` — from back when `Semigroup` hadn't yet been split out of `Monoid`. Ekans keeps the historical name rather than inventing a friendlier one, matching the project's general lean toward Haskell-faithful naming (`fmap`, `ap`, `point`) over what merely reads nicest in isolation.
+
+**The one law.** `mappend` must be associative — grouping doesn't matter, only order does:
+
+```
+a.mappend(b).mappend(c) == a.mappend(b.mappend(c))
+```
+
+Addition satisfies this (`(1 + 2) + 3 == 1 + (2 + 3)`); subtraction doesn't (`(1 - 2) - 3 != 1 - (2 - 3)`) — which is exactly the kind of broken instance the law is there to catch.
+
+**A first: no override boilerplate at all.** Every other type class here has needed its concrete overrides to narrow a return type away from something loose (`Functor[B]`, `Apply[B]`, ...), usually paired with a `# type: ignore[override]` explaining why. `Semigroup.mappend` sidesteps this entirely with `typing.Self`: the abstract method is declared `def mappend(self, other: Self) -> Self`, and `Self` already means "exactly whatever concrete class this is," precisely, for every subclass, with zero extra typing work.
+
+**Why there's no `Identity`/`Const`/`Reader` class instance here.** Unlike `Functor` or `Apply`, `Semigroup` isn't unconditionally true of a container just because it holds *something* — `Identity[A]` only knows how to `mappend` when `A` itself does (there's no way to combine two `Identity[str]`s by squishing their `str`s together with a method `str` doesn't have). Haskell expresses this as a *constrained instance* (`instance Semigroup a => Semigroup (Identity a)`); Python has no direct equivalent at the class level. Ekans' answer: `Identity`, `Const`, and `Reader` never nominally inherit `Semigroup` at all. Instead, all three show up purely as `ekans.semigroup.mappend`, a single overloaded free function bounded by a `TypeVar("S", bound=Semigroup)`:
+
+```python
+from ekans.const import Const
+from ekans.identity import Identity
+from ekans.reader import Reader
+from ekans.semigroup import mappend
+
+mappend(Identity(value=Box(1)), Identity(value=Box(2)))  # Identity(value=Box(value=3))
+mappend(Const(value=Box(1)), Const(value=Box(2)))        # Const(value=Box(value=3))
+
+f: Reader[str, Box] = Reader(run=lambda env: Box(1))
+g: Reader[str, Box] = Reader(run=lambda env: Box(2))
+mappend(f, g).run("anything")  # Box(value=3) -- both sides ran against the same environment
+
+mappend(Identity(value="a"), Identity(value="b"))
+# error: Value of type variable "S" of "mappend" cannot be "str"  [type-var]
+```
+
+That rejection is real, not just documented convention — `str` genuinely isn't a `Semigroup`, and mypy catches it at the call site. `Box` above isn't a temporary stand-in waiting for a real type to catch up (the way it was for `Functor`) — demonstrating a constrained instance means there will always be a need for a small type that genuinely implements `Semigroup` on its own.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
 
 - **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.
-- **Semigroup** — anything you know how to squish two of together into one.
 - **Monoid** — a `Semigroup` that also knows how to make something out of *nothing* (an identity element).
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.
 - **Profunctor** — a box with an in-door and an out-door, each independently adaptable.
