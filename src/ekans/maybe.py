@@ -2,12 +2,16 @@
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Generic, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar, Union
 
 from ekans.monad import Monad
 
+if TYPE_CHECKING:
+    from ekans.semigroup import Semigroup
+
 A = TypeVar("A")
 B = TypeVar("B")
+S = TypeVar("S", bound="Semigroup")
 
 
 class Maybe(Monad[A], Generic[A]):
@@ -55,6 +59,26 @@ class Maybe(Monad[A], Generic[A]):
             `Just(value=value)`.
         """
         return Just(value=value)
+
+    @classmethod
+    def mempty(cls, value_type: Type[S]) -> "Nothing[S]":
+        """Construct the identity element: `Nothing`, regardless of `value_type`.
+
+        `S` is bound to `Semigroup`, not `Monoid` -- a real, verified
+        difference from `Identity`/`Const`/`Reader`'s `mempty`. This
+        never calls `value_type.mempty()` at all, since `Nothing()` is
+        unconditionally a valid identity regardless of what `A` is;
+        `value_type` exists purely to pin `S` statically, same
+        precedent as `Const.point`'s discarded `value` parameter.
+
+        Args:
+            value_type: The concrete Semigroup type `mappend` will
+                combine when this Maybe is later mappended with a Just.
+
+        Returns:
+            `Nothing()`.
+        """
+        return Nothing()
 
     @abstractmethod
     def ap(  # type: ignore[override]

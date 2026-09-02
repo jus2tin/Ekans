@@ -903,6 +903,17 @@ def describe(m: "Just[int] | Nothing[int]") -> str:
 
 **One more real gap, worth constructing `Nothing` carefully around.** `Nothing` takes no arguments — there's nothing to hold — but that means a bare `Nothing()` with no surrounding context has nothing to infer its type parameter *from* either. Checked directly: `Nothing()` alone resolves to `Nothing[Never]`, not the `Nothing[A]` you'd want. Either bracket it explicitly (`Nothing[int]()`) or let an annotated target supply the context (`n: Maybe[int] = Nothing()`, as above) — both resolve precisely. Same category of gap as `Sum`/`Product`/`Ap`'s `mempty()` needing an explicit type argument (see `Semigroup`/`Monoid` above) — Python's generics are erased at runtime, so nothing about a bare, argument-less `Nothing()` can tell mypy what it's a `Nothing` *of*.
 
+**Conditionally a `Semigroup`, same non-nominal story as `Identity`/`Const`/`Reader` — but with a genuinely weaker `Monoid` requirement.** `Nothing` combined with anything returns the other side untouched; two `Just`s combine their held values via `mappend`:
+
+```python
+from ekans.semigroup import mappend
+
+mappend(Just(value=Box(value=1)), Just(value=Box(value=2)))  # Just(value=Box(value=3))
+mappend(Nothing(), Just(value=Box(value=1)))                 # Just(value=Box(value=1))
+```
+
+`Maybe.mempty(SomeSemigroupType)` builds the identity element — always `Nothing()`, no matter what `SomeSemigroupType` is. That last part is the interesting bit: every other conditional `mempty` in this library (`Identity`'s, `Const`'s, `Reader`'s) needs its held type to be a full `Monoid`, because it has to call that type's own `mempty()` to produce a real value to hold. `Maybe.mempty` never does that — `Nothing()` is already a valid identity regardless of what `A` is, so the constraint drops all the way down to `Semigroup`. Checked directly: a type that's a `Semigroup` but deliberately *not* a `Monoid` (no `mempty()` of its own at all) still works fine as `Maybe.mempty`'s argument — something that would be a hard `mypy --strict` error for `Identity.mempty`/`Const.mempty`/`Reader.mempty` on the same type.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.

@@ -475,7 +475,7 @@ Documentation: new `docs/HOWTO.md` `Maybe` section covering the sealed shape, a 
 
 ### T-058: `Maybe`'s conditional `Semigroup`/`Monoid`
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-057
 
 Add a `Maybe` overload to the existing shared free `mappend` (`semigroup.py`), `S` bound to `Semigroup`: `Nothing <> x = x`, `x <> Nothing = x`, `Just a <> Just b = Just (a.mappend(b))`, via `match`/`case`. Add a `mempty(value_type: Type[S]) -> Maybe[S]` classmethod directly on `Maybe`, alongside `point` -- per the spec's Design section, `S` is bound to `Semigroup`, **not** `Monoid` (a real, verified difference from `Identity`/`Const`/`Reader`'s `mempty`): `Maybe.mempty` never calls `value_type.mempty()` at all, since `Nothing()` is unconditionally a valid identity regardless of `A`; `value_type` exists purely to pin the static type parameter.

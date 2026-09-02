@@ -16,9 +16,30 @@ from ekans.bind import Bind, bind
 from ekans.functor import fmap
 from ekans.maybe import Just, Maybe, Nothing
 from ekans.monad import Monad
+from ekans.monoid import Monoid
+from ekans.semigroup import Semigroup, mappend
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")
+
+
+@dataclass(frozen=True, eq=False)
+class _SemiBox(Semigroup):
+    """A Semigroup that is deliberately NOT a Monoid -- concrete proof
+    that Maybe.mempty only needs A: Semigroup, not A: Monoid, per the
+    spec's central Semigroup-not-Monoid finding.
+    """
+
+    value: int
+
+    def mappend(self, other: "_SemiBox") -> "_SemiBox":
+        return _SemiBox(value=self.value + other.value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _SemiBox) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
 
 
 @dataclass(frozen=True, eq=False)
@@ -291,3 +312,71 @@ def test_match_case_is_exhaustive_over_nothing() -> None:
 @given(st.integers())
 def test_match_case_narrows_justs_value_precisely(value: int) -> None:
     assert _describe(Just(value=value)) == f"got {value}"
+
+
+def test_mappend_combines_two_justs_semigroup_values() -> None:
+    a: Maybe[_SemiBox] = Just(value=_SemiBox(value=1))
+    b: Maybe[_SemiBox] = Just(value=_SemiBox(value=2))
+    assert mappend(a, b) == Just(value=_SemiBox(value=3))
+
+
+def test_mappend_nothing_is_the_left_identity() -> None:
+    x: Maybe[_SemiBox] = Just(value=_SemiBox(value=5))
+    nothing: Maybe[_SemiBox] = Nothing()
+    assert mappend(nothing, x) == x
+
+
+def test_mappend_nothing_is_the_right_identity() -> None:
+    x: Maybe[_SemiBox] = Just(value=_SemiBox(value=5))
+    nothing: Maybe[_SemiBox] = Nothing()
+    assert mappend(x, nothing) == x
+
+
+def test_mappend_both_nothing_is_nothing() -> None:
+    a: Maybe[_SemiBox] = Nothing()
+    b: Maybe[_SemiBox] = Nothing()
+    assert mappend(a, b) == Nothing()
+
+
+@given(st.integers(), st.integers(), st.integers())
+def test_free_mappend_is_associative(a: int, b: int, c: int) -> None:
+    # Maybe doesn't nominally implement Semigroup (same non-nominal
+    # reasoning as Identity/Const/Reader's own conditional support),
+    # so assert_semigroup_law (which assumes a `.mappend()` method)
+    # doesn't apply here -- testing the law directly against the free
+    # function instead, same pattern test_identity.py/test_const.py use.
+    x: Maybe[_SemiBox] = Just(value=_SemiBox(value=a))
+    y: Maybe[_SemiBox] = Just(value=_SemiBox(value=b))
+    z: Maybe[_SemiBox] = Just(value=_SemiBox(value=c))
+    assert mappend(mappend(x, y), z) == mappend(x, mappend(y, z))
+
+
+def test_mempty_constructs_nothing_for_a_semigroup_type() -> None:
+    # _SemiBox is a Semigroup but deliberately NOT a Monoid -- the
+    # concrete verification of the spec's central claim that
+    # Maybe.mempty only needs A: Semigroup, not A: Monoid.
+    assert Maybe.mempty(_SemiBox) == Nothing()
+
+
+def test_is_not_a_monoid() -> None:
+    # Maybe can't nominally inherit Monoid -- same non-nominal
+    # reasoning as its conditional Semigroup support.
+    assert not isinstance(Just(value=1), Monoid)
+    assert not isinstance(Nothing(), Monoid)
+
+
+def test_mempty_is_the_left_identity() -> None:
+    x: Maybe[_SemiBox] = Just(value=_SemiBox(value=5))
+    assert mappend(Maybe.mempty(_SemiBox), x) == x
+
+
+def test_mempty_is_the_right_identity() -> None:
+    x: Maybe[_SemiBox] = Just(value=_SemiBox(value=5))
+    assert mappend(x, Maybe.mempty(_SemiBox)) == x
+
+
+def test_free_mappend_raises_for_an_unrecognized_maybe_subclass() -> None:
+    just: Maybe[_SemiBox] = Just(value=_SemiBox(value=1))
+    rogue: Maybe[_SemiBox] = _RogueMaybe()
+    with pytest.raises(AssertionError):
+        mappend(just, rogue)
