@@ -162,7 +162,7 @@ Spec: [`docs/specs/semigroup.md`](docs/specs/semigroup.md)
 
 ### T-020: Semigroup ABC
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/semigroup.py` with the `Semigroup(Functional)` abstract class per the spec: abstract `mappend(self, other: Self) -> Self`, no override narrowing needed anywhere thanks to `typing.Self` (verified in Phase 1 — see spec's Design section). No free `mappend` function yet — that's T-022, since it needs at least one concrete container overload to be worth introducing (same reasoning as `fmap`'s T-001/`ap`'s T-012). Includes the real `docs/HOWTO.md` `Semigroup` section, replacing the current stub.
 

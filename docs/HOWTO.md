@@ -16,6 +16,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Reader: a box that's actually a function](#reader-a-box-thats-actually-a-function)
 - [Apply: when the function is also in a box](#apply-when-the-function-is-also-in-a-box)
 - [Applicative: Pointed and Apply, together](#applicative-pointed-and-apply-together)
+- [Semigroup: squishing two into one](#semigroup-squishing-two-into-one)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -391,13 +392,56 @@ Notice the class declaration: just `Applicative[A]`, nothing else — no separat
 
 That last one is worth being honest about: it's the identical formula to `Apply`'s own associativity law — testing it again here isn't finding new bugs so much as confirming `point` doesn't quietly break something `ap` alone already got right.
 
+## Semigroup: squishing two into one
+
+Every type class so far has been about boxes: things that hold a value and know how to be mapped over, pointed into, or applied through. `Semigroup` is different — it's not about boxes at all. It's a property a plain type can have: knowing how to combine two of itself into a third.
+
+```python
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+from ekans.semigroup import Semigroup
+
+A = TypeVar("A")
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Semigroup, Generic[A]):
+    value: A
+
+    def mappend(self, other: "Box[A]") -> "Box[A]":
+        return Box(value=self.value + other.value)  # type: ignore[operator]
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and bool(self.value == other.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+Box(value=1).mappend(Box(value=2))  # Box(value=3)
+```
+
+`mappend` is Haskell's historical name for `<>` — from back when `Semigroup` hadn't yet been split out of `Monoid`. Ekans keeps the historical name rather than inventing a friendlier one, matching the project's general lean toward Haskell-faithful naming (`fmap`, `ap`, `point`) over what merely reads nicest in isolation.
+
+**The one law.** `mappend` must be associative — grouping doesn't matter, only order does:
+
+```
+a.mappend(b).mappend(c) == a.mappend(b.mappend(c))
+```
+
+Addition satisfies this (`(1 + 2) + 3 == 1 + (2 + 3)`); subtraction doesn't (`(1 - 2) - 3 != 1 - (2 - 3)`) — which is exactly the kind of broken instance the law is there to catch.
+
+**A first: no override boilerplate at all.** Every other type class here has needed its concrete overrides to narrow a return type away from something loose (`Functor[B]`, `Apply[B]`, ...), usually paired with a `# type: ignore[override]` explaining why. `Semigroup.mappend` sidesteps this entirely with `typing.Self`: the abstract method is declared `def mappend(self, other: Self) -> Self`, and `Self` already means "exactly whatever concrete class this is," precisely, for every subclass, with zero extra typing work.
+
+**Why there's no `Identity`/`Const`/`Reader` instance here.** Unlike `Functor` or `Apply`, `Semigroup` isn't unconditionally true of a container just because it holds *something* — `Identity[A]` only knows how to `mappend` when `A` itself does (there's no way to combine two `Identity[str]`s by squishing their `str`s together with a method `str` doesn't have). Haskell expresses this as a *constrained instance* (`instance Semigroup a => Semigroup (Identity a)`); Python has no direct equivalent at the class level. Ekans' answer: `Identity`, `Const`, and `Reader` never nominally inherit `Semigroup` at all. Instead, once those instances land, they'll show up purely as an overloaded free function bounded by a `TypeVar("S", bound=Semigroup)` — so `mappend(Identity(value=Box(1)), Identity(value=Box(2)))` type-checks, but `mappend(Identity(value="a"), Identity(value="b"))` is rejected by mypy outright, not just by convention. `Box` above isn't a temporary stand-in waiting for a real type to catch up (the way it was for `Functor`) — demonstrating a constrained instance means there will always be a need for a small type that genuinely implements `Semigroup` on its own.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
 
 - **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.
-- **Semigroup** — anything you know how to squish two of together into one.
 - **Monoid** — a `Semigroup` that also knows how to make something out of *nothing* (an identity element).
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.
 - **Profunctor** — a box with an in-door and an out-door, each independently adaptable.
