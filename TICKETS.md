@@ -403,7 +403,7 @@ Add `src/ekans/monad.py` with `Monad[A_co](Applicative[A_co], Bind[A_co], Generi
 
 ### T-051: Monad law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-050
 
 `tests/monad_laws.py`: `assert_monad_law(point, values, equal=None)` -- left identity (`point(a).bind(f) == f(a)`) and right identity (`m.bind(point) == m`), expressed via `point` alone, same shape as `applicative_laws.py`. Associativity is not retested (already covered by `Bind`'s own law). T-052/T-053 are its callers.
