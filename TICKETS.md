@@ -300,7 +300,7 @@ Add `src/ekans/monoid.py` with `Monoid(Semigroup)` per the spec: abstract `mempt
 
 ### T-038: Monoid law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 `tests/monoid_laws.py`: `assert_monoid_law(make, mempty, values, equal=None)` -- left/right identity, extending `assert_semigroup_law`'s pattern per the spec's Testing strategy. T-039 is its first caller.
