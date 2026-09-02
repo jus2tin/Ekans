@@ -421,3 +421,17 @@ Retrofit `Identity[A]`'s base classes to `Monad[A]` + `Extractable[A]` only, dro
 **Depends on:** T-050, T-051
 
 Retrofit `Reader[R, A]`'s base classes to `Monad[A]` only, dropping the now-redundant explicit `Applicative[A]`/`Bind[A]`. No new methods. Law test via T-051's helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s other law tests). Update `docs/HOWTO.md`'s `Reader` section with a short note.
+
+## do
+
+Spec: [`docs/specs/do.md`](docs/specs/do.md)
+
+### T-054: `@do` decorator
+
+**Status:** Closed
+
+Add `src/ekans/do.py`'s `do` decorator per the spec: `ParamSpec`-forwarding trampoline over `Callable[P, Generator[Monad[T], Any, Monad[U]]]`, calling `.bind`/`.send` to flatten the generator into a single `Monad[U]`. Both `except StopIteration as e: return e.value` lines carry `# type: ignore[no-any-return]` with the one-sentence justification from the spec (`StopIteration.value` is typeshed-`Any`; no narrower type is derivable at that boundary).
+
+Tests (`tests/test_do.py`): Hypothesis-driven equivalence tests asserting a `@do`-decorated computation over `Identity` and over `Reader` produces the same result as the same computation written as an explicit manual `.bind()` chain. A short-circuit test using a local, test-file-only `_Just`/`_Nothing` double (matching `test_monad.py`'s illustrative-type convention, not exported) confirming a do-block halts at the first `_Nothing()` and never executes code after that `yield`. Every do-block in the test file follows the spec's required style: an explicit outer `Generator[Monad[T], Any, Monad[U]]` return annotation, and an explicit local type annotation on every `yield` assignment.
+
+Documentation: new `docs/HOWTO.md` section introducing `@do`, written in the required style, stating the `Any`-wall limitation and its mitigation plainly (same honest treatment as the Monoid erasure wall / `Bind`'s free-function precision gap elsewhere in the doc), with runnable `Identity` and `Reader` examples and a short conceptual paragraph on short-circuiting.

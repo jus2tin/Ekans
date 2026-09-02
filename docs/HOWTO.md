@@ -25,6 +25,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Monoid: something out of nothing](#monoid-something-out-of-nothing)
 - [Bind: chaining boxes without nesting them](#bind-chaining-boxes-without-nesting-them)
 - [Monad: Applicative and Bind, evolved](#monad-applicative-and-bind-evolved)
+- [do: turning bind chains into procedural-looking code](#do-turning-bind-chains-into-procedural-looking-code)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -789,6 +790,63 @@ m.bind(point) == m         # right identity
 ```
 
 Verified directly: both hold for a correct implementation, and left identity genuinely catches a broken `point` (one that quietly nudges its argument) — not a vacuous pass.
+
+## do: turning bind chains into procedural-looking code
+
+Manual `bind` chaining works, but it nests: two steps read fine as `x.bind(lambda a: y.bind(lambda b: ...))`, four steps is a pyramid. `@do` flattens that pyramid using nothing but Python's own generator machinery — no macros, no AST rewriting, just `yield` and `.send()` under the hood:
+
+```python
+from typing import Any, Generator
+
+from ekans.do import do
+from ekans.identity import Identity
+from ekans.monad import Monad
+
+
+@do
+def computation() -> Generator[Monad[int], Any, Monad[int]]:
+    a: int = yield Identity(value=1)
+    b: int = yield Identity(value=a + 1)
+    return Identity(value=a + b)
+
+
+computation()  # Identity(value=3)
+```
+
+Each `yield` unwraps a `Monad`, binds the rest of the function to whatever comes out, and the final `return` becomes the computation's own result — exactly what the equivalent manual chain would produce:
+
+```python
+manual = Identity(value=1).bind(
+    lambda a: Identity(value=a + 1).bind(lambda b: Identity(value=a + b))
+)
+computation() == manual  # True
+```
+
+Two rules aren't optional, and both come from a real limitation in Python's own type system, not a style preference:
+
+**1. Every `@do`-decorated function must spell out its own `Generator[Monad[T], Any, Monad[U]]` return type.** Leave it off, and mypy infers `Monad[Any]` for the whole thing — the outer return type only stays precise if you write the annotation yourself; `@do` can't infer it for you.
+
+**2. Every `yield` assignment needs its own local type annotation** (`a: int = yield container`, not just `a = yield container`). Here's why, stated plainly rather than glossed over: a Python `Generator[YieldType, SendType, ReturnType]` has exactly *one* `SendType` for the whole function, but a real do-block's steps usually unwrap *different* types across yields — an `int` from one container, a `str` from the next. There's no way to give that one `SendType` slot more than one shape, so, structurally, every value pulled out of a bare `a = yield container` is typed `Any`. Not "loosely typed" — literally `Any`, with mypy raising no complaint at all if you go on to misuse it.
+
+Annotating the target recovers real safety from that point on: `a: int = yield container` makes `a` genuinely `int` for the rest of the function — mypy will catch a later `a + "oops"` just as it would anywhere else. What it *can't* do is verify that annotation against what's actually inside `container`; that one line is a small, deliberate trust boundary, the same category of trust extended to the output of `json.load()`. Get the annotation wrong and you won't get a type error — you'll get a confusing `AttributeError` a few lines later. This isn't a bug to route around; it's what an honest accounting of Python's `Generator` typing looks like, worth knowing rather than discovering the hard way. (Trying to dodge it by pinning the do-block's own `T` to something concrete doesn't help either — it just trades the silent `Any` for a hard `mypy --strict` error the moment two yields wrap different types, since a fixed `T` forces every yield in the block to share it.)
+
+`@do` works across environments too, since `Reader` is a `Monad` — it threads the same environment through every step, exactly like a manual `.bind()` chain would:
+
+```python
+from ekans.reader import Reader
+
+
+@do
+def with_env() -> Generator[Monad[int], Any, Monad[int]]:
+    a: int = yield Reader(run=lambda r: r + 1)
+    b: int = yield Reader(run=lambda r: r * 2)
+    return Reader(run=lambda r: a + b)
+
+
+with_env().run(10)  # 31 -- a = 11, b = 20, a + b = 31
+```
+
+**Short-circuiting comes for free.** `@do` never inspects what it yields — it just calls `.bind()` on it and lets that `Monad`'s own `bind` decide whether to keep going. A `Monad` that short-circuits (a future `Maybe`'s `Nothing`, an `Either`'s `Left`) skips calling the rest of the do-block automatically, the same way it would in a manual bind chain — there's no special-casing for this in `@do` itself, and none was needed. Ekans doesn't ship a `Maybe`/`Either` yet, so there's nothing to demo this against directly today, but the guarantee is already in place for whenever one lands.
 
 ## Coming soon
 
