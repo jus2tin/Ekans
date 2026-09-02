@@ -47,7 +47,7 @@ mypy src tests --strict
 
 ### Type classes: ABC, not Protocol
 
-- `Functional` and every type class in the hierarchy (`Functor`, `Monad`, `Semigroup`, ...) are `abc.ABC` with `@abstractmethod` — nominal typing. A concrete type must explicitly inherit from the type classes it implements, rather than structurally satisfying them.
+- `Functional` and every type class in the hierarchy (`Functor`, `Monad`, `Semigroup`, ...) are `abc.ABC` with `@abstractmethod` — nominal typing. A concrete type must explicitly inherit from the type classes it implements, rather than structurally satisfying them. Deliberate exception: `Foldable` — see "Why Foldable is a Protocol" below.
 
 ### Currying
 
@@ -69,6 +69,12 @@ mypy src tests --strict
 
 - `Star[F, A, B]` (wraps `A -> F[B]`) is a priority `Profunctor` instance, not just a rounding-out-the-set addition. When `F` is a `Monad`, composing two `Star`s is Kleisli composition — chaining effectful functions end to end. Giving `Star` its own `Category` instance built on that composition reproduces Haskell's `Kleisli` arrow exactly — the `Arrow` instance used for monadic effects. (Not every `Arrow` is Kleisli-shaped — plain functions form an `Arrow` too, with no box involved at all — but the Kleisli case, the one people actually reach for, is precisely `Star` plus `Category`.) Comes essentially free once `Category`, `Strong`, and `Monad` already exist, rather than needing its own bespoke machinery.
 
+### Why Foldable is a Protocol
+
+- `Foldable` deliberately breaks the "ABC, not Protocol" rule above. It's a `typing.Protocol` requiring only `__iter__` — structural, not nominal — so any existing iterable (`list`, `tuple`, `dict`, a generator, a custom type that already defines `__iter__` for unrelated reasons) satisfies it automatically, with no explicit inheritance needed. That's the opposite situation from every other type class here: `ap`, `point`, `fmap`, etc. aren't standard Python protocols, so nothing already implements them by accident, which is exactly why ABC's nominal-inheritance requirement isn't a cost there. `__iter__` is different — tons of types already have it for reasons that have nothing to do with `Foldable` — so this is the one place Protocol earns its keep instead of just being a different way to spell the same thing.
+- All of `Foldable`'s actual operations (fold, `toList`, length, sum, whatever else lands) are free functions taking anything satisfying the protocol, not methods declared on it — the protocol itself declares nothing but `__iter__`. Every one of those functions is built on top of `__iter__` alone.
+- Implementation detail worth recording now, before it's built: those free functions hide a trampoline internally. A naively recursive fold blows Python's default recursion limit on any moderately large iterable; a trampoline (bounce a thunk through an explicit loop instead of actually recursing) keeps the public function's behavior looking like ordinary recursive-style folding while staying stack-safe underneath.
+
 ## Type hierarchy
 
 - Functional
@@ -86,6 +92,7 @@ mypy src tests --strict
         - Category
         - Profunctor
             - Strong
+- Foldable — not a `Functional` subclass; a `typing.Protocol` requiring only `__iter__`. See "Why Foldable is a Protocol" above.
 
 ### First concrete types
 
