@@ -1,6 +1,6 @@
 # Spec: Monoid
 
-**Status:** Draft — awaiting review
+**Status:** Approved
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Monoid"
 
 ## Summary
