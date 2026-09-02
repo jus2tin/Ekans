@@ -1,6 +1,6 @@
 # Spec: Bind
 
-**Status:** Draft — awaiting review
+**Status:** Approved
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Bind"
 
 ## Summary
