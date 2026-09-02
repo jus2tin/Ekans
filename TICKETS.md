@@ -282,7 +282,7 @@ Retrofit `Const[A, B]` to also inherit `Extractable[A]` alongside its existing `
 
 ### T-036: Ap implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030, T-031 (Ap's `extract` delegates to Identity's)
 
 Retrofit `Ap[S]` to inherit `Extractable[S]`, `extract` returns `self.value.extract()` -- fully unwrapping through the wrapped `Identity[S]` to `S` directly, per the spec's Design section (not a shallow `Identity[S]` return). Example test plus a `reveal_type` precision probe confirming the full unwrap. Update `docs/HOWTO.md`'s `Ap` section with a short `extract` addition.

@@ -5,6 +5,7 @@ from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
 from ekans.ap import Ap
+from ekans.extractable import Extractable
 from ekans.identity import Identity
 from ekans.semigroup import Semigroup
 
@@ -69,3 +70,12 @@ def test_is_a_semigroup() -> None:
 
 def test_satisfies_the_semigroup_law() -> None:
     assert_semigroup_law(_make_ap, st.integers())
+
+
+def test_extract_fully_unwraps_to_the_held_value() -> None:
+    ap = Ap(value=Identity(value=_Box(value=5)))
+    assert ap.extract() == _Box(value=5)
+
+
+def test_is_extractable() -> None:
+    assert isinstance(_make_ap(1), Extractable)

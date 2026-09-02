@@ -587,6 +587,8 @@ Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.va
 
 **The honest gap:** Haskell's `Ap` is `newtype Ap f a = Ap { getAp :: f a }`, generic over *any* `Applicative f` — you could build `Ap Maybe Int`, `Ap [] Int`, `Ap IO Int`, whatever. Ekans' `Ap[S]` can't do that: it's fixed to wrap `Identity[S]` specifically, not generic over the box itself. This isn't a shortcut taken for convenience — it's a real wall. Python's type system has no *higher-kinded types*: a `TypeVar` can only ever stand for a concrete type, never for a type constructor waiting to be filled in. Try to write `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar`, and mypy refuses outright (`Type variable "F" used with arguments`) — there's no way to say "some box, whichever one, applied to `A`" the way Haskell's kind system lets you. So Ekans' `Ap` picks one box (`Identity`, the simplest one available) and stops there, rather than pretending to a generality the type system genuinely can't check.
 
+`Ap` is also `Extractable[S]` — and, unlike every other instance in this round, it doesn't stop at its own immediate field. `Ap[S]`'s `.value` is an `Identity[S]`, but `extract` reaches straight through it to `S`: `a.extract()` on `Ap(value=Identity(value=Box(value=1)))` returns `Box(value=1)` directly, not `Identity(value=Box(value=1)))`. The implementation is exactly that one-line delegation, `self.value.extract()` — `Identity` being `Extractable` too is what makes it possible.
+
 ## Extractable: getting a value out of a box
 
 `Pointed` (above) is "give me a box of this shape, holding this value" — a value goes in, a box comes out. `Extractable` runs that exact arrow backwards: a box goes in, its value comes out.
