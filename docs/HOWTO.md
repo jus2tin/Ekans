@@ -20,6 +20,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Sum: addition, boxed](#sum-addition-boxed)
 - [Product: multiplication, boxed](#product-multiplication-boxed)
 - [All: everyone has to agree](#all-everyone-has-to-agree)
+- [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -539,6 +540,41 @@ All(value=True).mappend(All(value=False))   # All(value=False)
 ```
 
 The name gives away the intuition: combine a bunch of `All`s together and the result is `True` only if *all* of them were. Since there's nothing to be generic over — `bool` is `bool`, there's no version of AND that varies by what's inside — `All` skips the `Protocol`/`TypeVar` machinery `Sum`/`Product` needed entirely, and its `__eq__` is typed against plain `object` rather than needing the type-parameter-narrowing trick from `Identity`/`Sum`/`Product`, since there's no type parameter to mismatch in the first place.
+
+## Ap: a box, held by a box
+
+`Sum`/`Product`/`All` combine plain values. `Ap[S]` combines *boxed* ones — it wraps an `Identity[S]` (where `S` is itself a `Semigroup`), and `mappend` reaches inside both boxes, combines what's there, and re-wraps the result:
+
+```python
+from dataclasses import dataclass
+
+from ekans.ap import Ap
+from ekans.identity import Identity
+from ekans.semigroup import Semigroup
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Semigroup):
+    value: int
+
+    def mappend(self, other: "Box") -> "Box":
+        return Box(value=self.value + other.value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+a = Ap(value=Identity(value=Box(value=1)))
+b = Ap(value=Identity(value=Box(value=2)))
+a.mappend(b)  # Ap(value=Identity(value=Box(value=3)))
+```
+
+Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.value, other.value))` — a direct transcription of Haskell's `mappend (Ap x) (Ap y) = Ap (liftA2 mappend x y)`, which is exactly why `liftA2` (above) needed to exist first: `Ap` isn't reimplementing that logic by hand, it's built straight on top.
+
+**The honest gap:** Haskell's `Ap` is `newtype Ap f a = Ap { getAp :: f a }`, generic over *any* `Applicative f` — you could build `Ap Maybe Int`, `Ap [] Int`, `Ap IO Int`, whatever. Ekans' `Ap[S]` can't do that: it's fixed to wrap `Identity[S]` specifically, not generic over the box itself. This isn't a shortcut taken for convenience — it's a real wall. Python's type system has no *higher-kinded types*: a `TypeVar` can only ever stand for a concrete type, never for a type constructor waiting to be filled in. Try to write `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar`, and mypy refuses outright (`Type variable "F" used with arguments`) — there's no way to say "some box, whichever one, applied to `A`" the way Haskell's kind system lets you. So Ekans' `Ap` picks one box (`Identity`, the simplest one available) and stops there, rather than pretending to a generality the type system genuinely can't check.
 
 ## Coming soon
 
