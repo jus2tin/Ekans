@@ -862,7 +862,19 @@ def with_env() -> Generator[Monad[int], Any, Monad[int]]:
 with_env().run(10)  # 31 -- a = 11, b = 20, a + b = 31
 ```
 
-**Short-circuiting comes for free.** `@do` never inspects what it yields — it just calls `.bind()` on it and lets that `Monad`'s own `bind` decide whether to keep going. A `Monad` that short-circuits (a future `Maybe`'s `Nothing`, an `Either`'s `Left`) skips calling the rest of the do-block automatically, the same way it would in a manual bind chain — there's no special-casing for this in `@do` itself, and none was needed. Ekans doesn't ship a `Maybe`/`Either` yet, so there's nothing to demo this against directly today, but the guarantee is already in place for whenever one lands.
+**Short-circuiting comes for free.** `@do` never inspects what it yields — it just calls `.bind()` on it and lets that `Monad`'s own `bind` decide whether to keep going. A `Monad` that short-circuits (`Maybe`'s `Nothing`, a future `Either`'s `Left`) skips calling the rest of the do-block automatically, the same way it would in a manual bind chain — there's no special-casing for this in `@do` itself, and none was needed:
+
+```python
+from ekans.maybe import Just, Nothing
+
+@do
+def with_maybe() -> Generator[Monad[int], Any, Monad[int]]:
+    a: int = yield Just(value=1)
+    b: int = yield Nothing()       # halts here
+    return Just(value=a + b)       # never reached
+
+with_maybe()  # Nothing()
+```
 
 ## Maybe: a value that might not be there
 

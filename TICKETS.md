@@ -486,7 +486,7 @@ Documentation: `docs/HOWTO.md` addition to the `Maybe` section explaining the co
 
 ### T-059: Real `Maybe`-based short-circuit regression test for `@do`
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-057
 
 Per `docs/specs/do.md`'s own flagged follow-up: add one additional test to `tests/test_do.py` using real `Just`/`Nothing` (not the existing local `_Just`/`_Nothing` double, which stays -- the do-notation guarantee is generic over any `Monad`, not `Maybe`-specific) confirming a `@do` block halts at the first `Nothing` and never resumes past it. Short addition to `docs/HOWTO.md`'s existing `@do` section noting the real example now exists.

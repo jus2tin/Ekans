@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 
 from ekans.do import do
 from ekans.identity import Identity
+from ekans.maybe import Just, Nothing
 from ekans.monad import Monad
 from ekans.reader import Reader
 
@@ -140,3 +141,23 @@ def test_do_short_circuits_and_never_resumes_past_a_nothing() -> None:
         "got a=1",
         "Nothing.bind: not calling f",
     ]
+
+
+def test_do_short_circuits_with_the_real_maybe_type() -> None:
+    # Regression test against the shipped Maybe type, per
+    # docs/specs/do.md's own flagged follow-up -- the local _Just/
+    # _Nothing double above stays too, since the do-notation guarantee
+    # is generic over any Monad, not Maybe-specific.
+    reached_past_nothing = []
+
+    @do
+    def computation() -> Generator[Monad[int], Any, Monad[int]]:
+        a: int = yield Just(value=1)
+        b: int = yield Nothing()
+        reached_past_nothing.append(True)
+        return Just(value=a + b)
+
+    result = computation()
+
+    assert result == Nothing()
+    assert reached_past_nothing == []
