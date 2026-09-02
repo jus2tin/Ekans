@@ -576,3 +576,80 @@ Add to `src/ekans/foldable.py`: `sum(xs)`/`product(xs)`, reusing the existing `S
 Tests: example-based per function, plus Hypothesis property tests using Python's own `sum`/`max`/`min` builtins as the oracle. Empty-input `ValueError` tested for `maximum`/`minimum`.
 
 Documentation: addition to the `Foldable` HOWTO section covering this function group; replaces the `Foldable` stub entry in "Coming soon" with a link to the real section once all three tickets are closed.
+
+### T-067: `__iter__` on `Identity`
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add `__iter__(self) -> Iterator[A]` to `Identity`, yielding `self.value`. No nominal `Foldable` inheritance (structural satisfaction only, per the Protocol's design).
+
+Tests: `isinstance(Identity(value=1), Foldable)` is `True`; `toList`/`list()` yields `[value]`. Cross-Product law tests per the spec's audit: `Functor`×`Foldable` coherence (`toList(fmap(f, x)) == [f(y) for y in toList(x)]`) and `Extractable`×`Foldable` coherence (`toList(x) == [extract(x)]`) and `Pointed`×`Foldable` coherence (`toList(Identity.point(v)) == [v]`), each as a Hypothesis property test.
+
+Documentation: one- or two-line addition to `Identity`'s existing HOWTO section noting its `Foldable` instance.
+
+### T-068: `__iter__` on `Const`
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add `__iter__(self) -> Iterator[B]` to `Const`, always empty (`iter(())`) — folds over the phantom `B`, which is never held.
+
+Tests: `isinstance(Const(value=1), Foldable)` is `True`; `toList`/`list()` is always `[]`, regardless of the held `A`. Cross-Product law tests: `Functor`×`Foldable` coherence (holds, both sides empty). Explicit test demonstrating the documented `Extractable`×`Foldable` **non-law** — `extract(x)` returns the held `A` while `toList(x) == []`, so the two diverge by construction.
+
+Documentation: one- or two-line addition to `Const`'s existing HOWTO section noting its `Foldable` instance and the `extract`/`toList` divergence.
+
+### T-069: `__iter__` on `Maybe` (`Just`/`Nothing`)
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add an abstract `__iter__(self) -> Iterator[A]` to `Maybe`, matching the existing `fmap`/`ap`/`bind` pattern. `Just.__iter__` yields `self.value`; `Nothing.__iter__` yields nothing.
+
+Tests: `isinstance` checks for both variants. `toList(Just(value=1)) == [1]`, `toList(Nothing()) == []`. Cross-Product law tests: `Functor`×`Foldable` coherence for both variants, `Pointed`×`Foldable` coherence (`toList(Maybe.point(v)) == [v]`, always produces `Just`). No `Extractable`×`Foldable` pair — `Maybe` doesn't nominally implement `Extractable`.
+
+Documentation: one- or two-line addition to `Maybe`'s existing HOWTO section noting its `Foldable` instance.
+
+### T-070: `__iter__` on `Either` (`Left`/`Right`)
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add an abstract `__iter__(self) -> Iterator[R]` to `Either`, matching the existing `fmap`/`ap`/`bind` pattern (folds over `R`, the `Monad`-biased parameter). `Left.__iter__` yields nothing; `Right.__iter__` yields `self.value`.
+
+Tests: `isinstance` checks for both variants. `toList(Left(value="e")) == []`, `toList(Right(value=1)) == [1]`. Cross-Product law tests: `Functor`×`Foldable` coherence for both variants, `Pointed`×`Foldable` coherence (`toList(Either.point(v)) == [v]`, always produces `Right`). No `Extractable`×`Foldable` pair — `Either` doesn't nominally implement `Extractable`.
+
+Documentation: one- or two-line addition to `Either`'s existing HOWTO section noting its `Foldable` instance.
+
+### T-071: `__iter__` on `Tuple2`
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add `__iter__(self) -> Iterator[B]` to `Tuple2`, yielding `self.second` only — `first` is untouched, matching the existing `Functor[B]`/`Extractable[B]` bias.
+
+Tests: `isinstance(Tuple2(first="a", second=1), Foldable)` is `True`; `toList` yields `[second]`, `first` never appears. Cross-Product law tests: `Functor`×`Foldable` coherence, `Extractable`×`Foldable` coherence (`toList(x) == [extract(x)]`). No nominal `Pointed`×`Foldable` pair — `Tuple2.point` is a classmethod for the free-function pattern, not a nominal `Pointed` instance.
+
+Documentation: one- or two-line addition to `Tuple2`'s existing HOWTO section noting its `Foldable` instance.
+
+### T-072: `__iter__` on `Sum`/`Product`
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add `__iter__(self) -> Iterator[A]` to `Sum` and `__iter__(self) -> Iterator[M]` to `Product`, each yielding `self.value` — matches modern GHC `base`'s derived `Foldable` for both newtype wrappers.
+
+Tests: `isinstance` checks for both. `toList` yields `[value]` for each. Cross-Product law tests: `Extractable`×`Foldable` coherence (`toList(x) == [extract(x)]`) for both. No `Functor`×`Foldable` pair — neither type nominally implements `Functor`.
+
+Documentation: one- or two-line addition to `Sum`'s and `Product`'s existing HOWTO sections noting their `Foldable` instances.
+
+### T-073: `__iter__` on `Ap`
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add `__iter__(self) -> Iterator[S]` to `Ap`, folding through the wrapped `Identity[S]` and yielding its one `S` (`self.value.value`, not `self.value` itself).
+
+Tests: `isinstance(Ap(value=Identity(value=1)), Foldable)` is `True`; `toList` yields `[value]`. Cross-Product law test: `Extractable`×`Foldable` coherence (`toList(x) == [extract(x)]`). No `Functor`×`Foldable` pair — `Ap` doesn't nominally implement `Functor`.
+
+Documentation: one- or two-line addition to `Ap`'s existing HOWTO section noting its `Foldable` instance.
