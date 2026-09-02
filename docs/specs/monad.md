@@ -1,6 +1,6 @@
 # Spec: Monad
 
-**Status:** Draft — awaiting review
+**Status:** Approved
 **Tickets:** see [`TICKETS.md`](../../TICKETS.md), section "Monad"
 
 ## Summary
