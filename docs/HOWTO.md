@@ -22,6 +22,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [All: everyone has to agree](#all-everyone-has-to-agree)
 - [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
 - [Extractable: getting a value out of a box](#extractable-getting-a-value-out-of-a-box)
+- [Monoid: something out of nothing](#monoid-something-out-of-nothing)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -126,6 +127,8 @@ Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that 
 
 `Identity` is also `Extractable` (see that section below) — `Identity(value=5).extract()` just returns `5`. For `Identity` specifically this is barely more than `.value` with extra ceremony, but it's the same uniform `extract` every other single-value type in the package shares, and `Identity` is the simplest possible place to see it work.
 
+`Identity.mempty(SomeMonoidType)` builds the identity element, wrapped: `Identity.mempty(Box)` gives `Identity(value=Box.mempty())`. Same non-nominal story as `Identity`'s `Semigroup` support (see the `Monoid` section below) — but unlike `mappend`, this one's a classmethod directly on `Identity`, not a free function, since a classmethod's own `TypeVar` doesn't leak onto every `Identity[A]` the way a nominal instance method would.
+
 ## Functor: doing something to what's inside
 
 `Functor` is the first real capability in the hierarchy — everything before it (`Functional`, `Identity`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.
@@ -200,9 +203,11 @@ a == b
 
 Same mechanism as `Identity`'s type-safe equality above, just extended to two type parameters instead of one — mypy's invariance check works purely at the type level, so it catches the mismatch on `B` even though `B` never shows up in a runtime attribute to compare.
 
-**Note for later:** `Const` doesn't get a `Pointed` instance yet, and won't until `Semigroup`/`Monoid` exist. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. No `Monoid`, no honest `Const.point`.
+**Note for later:** `Const` still doesn't get a `Pointed` instance — `Monoid` now exists (see that section below), so the blocker's gone, but retrofitting `Const` is its own follow-up round rather than bundled in here. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source.
 
 **Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section below for a real, runnable example.
+
+`Const.mempty(SomeMonoidType)` holds the identity element the same way `Identity.mempty` wraps it — `Const.mempty(Box)` gives `Const(value=Box.mempty())`, `B` freely inferred from context, the same way `fmap` freely re-tags it.
 
 `Const` is also `Extractable[A]` (see that section below) — `Const(value=5).extract()` returns `5`, the held `A`, never the phantom `B`. Worth noting alongside `Const[A, B]`'s two-type-parameter equality above: `Extractable[A]` and `Functor[B]` sit on *different* type parameters of the same class, and that composes cleanly — no conflict between the two.
 
@@ -307,6 +312,8 @@ If the environment leaking into both sides sounds obvious, it's worth checking: 
 Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, same as `Identity`.
 
 **Conditionally a `Semigroup`, pointwise this time.** Same story as `Identity` and `Const` above — `Reader[R, A]` can `mappend` two of itself precisely when `A` can, and never nominally inherits `Semigroup` for the same reason. The combination happens *pointwise*: run both sides against the same environment, then `mappend` the two results — `mappend(f, g).run(r) == f.run(r).mappend(g.run(r))`. It shares the same three-way `ekans.semigroup.mappend` overload as `Identity`/`Const`. See the `Semigroup` section below for a real, runnable example.
+
+`Reader.mempty(SomeMonoidType)` builds the identity element the same way `Reader.point` builds any other value — ignoring the environment entirely: `Reader.mempty(Box).run(anything)` always returns `Box.mempty()`, no matter what `anything` is.
 
 ## Apply: when the function is also in a box
 
@@ -522,6 +529,8 @@ That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a sma
 
 `Sum` is also `Extractable` (see that section below): `Sum(value=6).extract()` returns the plain `6` back out, no `Sum` wrapper left — the shape that makes `sum = lambda foldable: foldMap(Sum, foldable).extract()` work, once `foldMap` exists.
 
+`Sum.mempty(int)` gives `Sum(value=0)`, `Sum.mempty(float)` gives `Sum(value=0.0)` — the additive identity, explicitly typed (see the `Monoid` section below for why it needs that explicit argument, and why `Sum` still isn't nominally a `Monoid`). Any custom type works too, as long as it implements a `.zero()` classmethod alongside its `__add__` — `int`/`float` are special-cased inside `mempty` since neither has one of its own.
+
 ## Product: multiplication, boxed
 
 `Product[M]` is `Sum`'s sibling: same shape, different operation. `mappend` is `*` instead of `+`, bounded by its own small `SupportsMul` `Protocol` requiring a self-typed `__mul__`, structurally rather than by inheritance — same reasoning as `Sum`'s `SupportsAdd` above.
@@ -537,6 +546,8 @@ Wrapping the number in `Product` rather than `Sum` says which combining operatio
 
 `Product` is also `Extractable`: `Product(value=6).extract()` returns `6`, same shape as `Sum`.
 
+`Product.mempty(int)` gives `Product(value=1)`, `Product.mempty(float)` gives `Product(value=1.0)` — the multiplicative identity, same explicit-`Type[X]` shape as `Sum.mempty` and for the same reason (see the `Monoid` section below). Custom types need a `.one()` classmethod alongside `__mul__`.
+
 ## All: everyone has to agree
 
 `Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:
@@ -551,6 +562,8 @@ All(value=True).mappend(All(value=False))   # All(value=False)
 The name gives away the intuition: combine a bunch of `All`s together and the result is `True` only if *all* of them were. Since there's nothing to be generic over — `bool` is `bool`, there's no version of AND that varies by what's inside — `All` skips the `Protocol`/`TypeVar` machinery `Sum`/`Product` needed entirely, and its `__eq__` is typed against plain `object` rather than needing the type-parameter-narrowing trick from `Identity`/`Sum`/`Product`, since there's no type parameter to mismatch in the first place.
 
 `All` is also `Extractable[bool]` — not a generic `Extractable[A]`, since `All` itself was never generic: `All(value=True).extract()` returns `True`.
+
+`All` is also, genuinely, a `Monoid` — the one type in this round with no erasure wall to hit, since it isn't generic over anything. `All.mempty()` is exactly the nullary classmethod `Monoid` promises, no `Type[X]` argument needed: `All.mempty() == All(value=True)`, `True` being AND's identity (combine anything with `True` and you get that thing back).
 
 ## Ap: a box, held by a box
 
@@ -588,6 +601,8 @@ Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.va
 **The honest gap:** Haskell's `Ap` is `newtype Ap f a = Ap { getAp :: f a }`, generic over *any* `Applicative f` — you could build `Ap Maybe Int`, `Ap [] Int`, `Ap IO Int`, whatever. Ekans' `Ap[S]` can't do that: it's fixed to wrap `Identity[S]` specifically, not generic over the box itself. This isn't a shortcut taken for convenience — it's a real wall. Python's type system has no *higher-kinded types*: a `TypeVar` can only ever stand for a concrete type, never for a type constructor waiting to be filled in. Try to write `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar`, and mypy refuses outright (`Type variable "F" used with arguments`) — there's no way to say "some box, whichever one, applied to `A`" the way Haskell's kind system lets you. So Ekans' `Ap` picks one box (`Identity`, the simplest one available) and stops there, rather than pretending to a generality the type system genuinely can't check.
 
 `Ap` is also `Extractable[S]` — and, unlike every other instance in this round, it doesn't stop at its own immediate field. `Ap[S]`'s `.value` is an `Identity[S]`, but `extract` reaches straight through it to `S`: `a.extract()` on `Ap(value=Identity(value=Box(value=1)))` returns `Box(value=1)` directly, not `Identity(value=Box(value=1)))`. The implementation is exactly that one-line delegation, `self.value.extract()` — `Identity` being `Extractable` too is what makes it possible.
+
+`Ap.mempty(SomeMonoidType)` is the simplest `mempty` in the package — no `int`/`float` registry needed the way `Sum`/`Product` need one, since `S` is already bound to `Semigroup` and the `Type[X]` argument is bound one notch tighter, to `Monoid`, which already has its own real `mempty()`. `Ap.mempty` just delegates straight to it: `Identity(value=value_type.mempty())`.
 
 ## Extractable: getting a value out of a box
 
@@ -629,13 +644,47 @@ Like `point`, `extract` needed no design detour to get precise: it's an ordinary
 
 `extract` connects to more than just `point`, too — `extract(w.fmap(f)) == f(w.extract())` and `x.ap(f).extract() == f.extract()(x.extract())` both hold for `Identity`, and `mappend(x, y).extract() == x.extract().mappend(y.extract())` holds everywhere a type is both `Semigroup` and `Extractable`. See `docs/specs/invariance-audit.md` for the full cross-class inventory, including the pairs that were checked and genuinely don't have a law (like `Const`'s `Functor`/`Extractable` naturality — `fmap` and `extract` touch different type parameters there, so the law isn't just false, it isn't even well-typed).
 
+## Monoid: something out of nothing
+
+`Semigroup` tells you how to combine two of something. `Monoid` adds the other half: a value that does *nothing* when combined — combine anything with it, on either side, and you get the original thing back unchanged.
+
+```python
+from dataclasses import dataclass
+
+from ekans.monoid import Monoid
+
+@dataclass(frozen=True, eq=False)
+class Box(Monoid):
+    value: int
+
+    def mappend(self, other: "Box") -> "Box":
+        return Box(value=self.value + other.value)
+
+    @classmethod
+    def mempty(cls) -> "Box":
+        return Box(value=0)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+Box.mempty().mappend(Box(value=5))  # Box(value=5) -- unchanged
+Box(value=5).mappend(Box.mempty())  # Box(value=5) -- unchanged either side
+```
+
+**The honest wall this hits.** Haskell's `mempty :: a` is nullary — no arguments, the type alone tells you what to build. Python can't do this for a *generic* container: types are erased at runtime, so a hypothetical `Sum.mempty()` has no way to know, when the code actually runs, whether you wanted `int`'s `0` or `float`'s `0.0`. This isn't a hunch — it was checked directly, and the result is worse than a type error: a hardcoded `Sum.mempty()` lets mypy *confidently and wrongly* infer `Sum[float]` from context while the running code silently hands back an `int` `0`. A silent wrong answer that type-checks clean is far worse than a loud one that doesn't.
+
+So `Sum`/`Product`/`Ap`'s `mempty` takes the type explicitly — `Sum.mempty(int)`, not `Sum.mempty()` — trading a little of Haskell's elegance for something that's actually correct. And because a classmethod requiring that extra argument doesn't honestly satisfy `Monoid`'s zero-argument contract (verified: `mypy --strict` flags it as a real signature-incompatibility error, not a narrow-return-type situation `# type: ignore` could paper over), those three don't nominally inherit `Monoid` at all — only `All` does, since it isn't generic over anything and has nothing to erase. See each type's own section above for its `mempty`.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
 
 - **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.
-- **Monoid** — a `Semigroup` that also knows how to make something out of *nothing* (an identity element).
 - **Extend** — the dual of `Bind`: instead of chaining box-producing functions together, it lets a function that consumes a *whole box* (`w a -> b`) be applied across a structure without collapsing it (`extend`/`duplicate`).
 - **Comonad** — `Functor`, `Extractable`, and `Extend`, together — the mirror image of `Monad`.
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.

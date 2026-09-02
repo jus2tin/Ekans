@@ -293,63 +293,63 @@ Spec: [`docs/specs/monoid.md`](docs/specs/monoid.md)
 
 ### T-037: Monoid ABC
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020 (Semigroup ABC)
 
 Add `src/ekans/monoid.py` with `Monoid(Semigroup)` per the spec: abstract `mempty(cls) -> Self` classmethod, nullary, no `Type[X]` argument at the ABC level (the erasure workaround only applies to types that hit the wall -- `Monoid` itself states the honest, correct Haskell-faithful contract). Includes the real `docs/HOWTO.md` `Monoid` section, including the erasure-wall story.
 
 ### T-038: Monoid law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 `tests/monoid_laws.py`: `assert_monoid_law(make, mempty, values, equal=None)` -- left/right identity, extending `assert_semigroup_law`'s pattern per the spec's Testing strategy. T-039 is its first caller.
 
 ### T-039: All implements Monoid
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037, T-038
 
 Retrofit `All` to nominally inherit `Monoid` (no erasure problem -- `All` isn't generic). `mempty(cls) -> All` returns `All(value=True)`, the identity for AND. Law test via T-038's helper. Cross-Product audit test: `All.mempty().extract() == True` (Monoid/Extractable). Update `docs/HOWTO.md`'s `All` section.
 
 ### T-040: Sum's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Add `Sum.mempty(cls, value_type: Type[X])` per the spec's Design section: a new `SupportsZero` protocol (extending `SupportsAdd`) plus a hardcoded `int`/`float` registry, as a 3-variant `@overload` set. Does **not** override `Monoid.mempty` -- `Sum` does not nominally inherit `Monoid` (verified `[override]` LSP violation otherwise). Tests: `int`/`float`/custom-`SupportsZero`-type construction, genuine rejection of a type with neither, left/right identity against `.mappend()` directly (not via the T-038 helper, since `Sum` isn't nominally `Monoid`), plus `reveal_type` precision probes for all three positive cases. Cross-Product audit test: `Sum.mempty(int).extract() == 0`. Update `docs/HOWTO.md`'s `Sum` section.
 
 ### T-041: Product's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Same shape as T-040 with a `SupportsOne` protocol (extending `SupportsMul`) and an `int`/`float` registry mapping to `1`/`1.0`. Update `docs/HOWTO.md`'s `Product` section.
 
 ### T-042: Ap's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037, T-030 (Extractable, for the cross-product test), T-036 (Ap implements Extractable)
 
 Add `Ap.mempty(cls, value_type: Type[S])` where `S: Monoid`, returning `Ap(value=Identity(value=value_type.mempty()))`. Does not override `Monoid.mempty` -- same non-nominal reasoning as T-040/T-041. Tests: construction, left/right identity against `.mappend()` directly, `reveal_type` precision probe. Cross-Product audit test: `Ap.mempty(Box).extract() == Box.mempty()`. Update `docs/HOWTO.md`'s `Ap` section.
 
 ### T-043: Identity's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Add `Identity.mempty(cls, value_type: Type[S])` where `S: Monoid` (a fresh method-scoped `TypeVar`, independent of `Identity`'s own `A`), returning `Identity(value=value_type.mempty())`. Verified in Phase 1 this works as a classmethod directly on `Identity` -- no free function needed, unlike `mappend`, since a classmethod's fresh `TypeVar` doesn't contaminate every `Identity[A]` instance the way a nominal instance method would have. Tests: construction, left/right identity, genuine rejection of a non-`Monoid` `value_type` (e.g. `Identity.mempty(str)`), `reveal_type` precision probe. Update `docs/HOWTO.md`'s `Identity` section.
 
 ### T-044: Const's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Same shape as T-043: `Const.mempty(cls, value_type: Type[S]) -> Const[S, B]`, `B` freely inferred from context, unrelated to `S`. Verified in Phase 1. Update `docs/HOWTO.md`'s `Const` section.
 
 ### T-045: Reader's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Same shape as T-043/T-044: `Reader.mempty(cls, value_type: Type[S]) -> Reader[R, S]`, pointwise (`Reader(run=lambda r: value_type.mempty())`, ignoring the environment entirely -- same pattern as `Reader.point`/`const`), `R` freely inferred. Verified in Phase 1. Update `docs/HOWTO.md`'s `Reader` section.

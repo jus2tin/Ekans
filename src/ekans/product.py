@@ -1,12 +1,13 @@
 """Product: a Semigroup wrapper combining values via multiplication."""
 
 from dataclasses import dataclass
-from typing import Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, Type, TypeVar, overload
 
 from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
 
 _MulT = TypeVar("_MulT", bound="SupportsMul")
+_OneT = TypeVar("_OneT", bound="SupportsOne")
 
 
 class SupportsMul(Protocol):
@@ -14,6 +15,15 @@ class SupportsMul(Protocol):
 
     def __mul__(self: _MulT, other: _MulT) -> _MulT:
         """Multiply `self` and `other`, returning the same type."""
+        ...
+
+
+class SupportsOne(SupportsMul, Protocol):
+    """Structural bound: anything with a classmethod `one()`."""
+
+    @classmethod
+    def one(cls: Type[_OneT]) -> _OneT:
+        """Return the multiplicative identity for this type."""
         ...
 
 
@@ -72,3 +82,32 @@ class Product(Semigroup, Extractable[M], Generic[M]):
             The wrapped value.
         """
         return self.value
+
+    @overload
+    @classmethod
+    def mempty(cls, value_type: Type[int]) -> "Product[int]": ...
+    @overload
+    @classmethod
+    def mempty(cls, value_type: Type[float]) -> "Product[float]": ...
+    @overload
+    @classmethod
+    def mempty(cls, value_type: Type[_OneT]) -> "Product[_OneT]": ...
+    @classmethod  # noqa: E301
+    def mempty(cls, value_type: Any) -> Any:
+        """Construct the multiplicative identity for `value_type`.
+
+        Does not override `Monoid.mempty` -- same non-nominal
+        reasoning as `Sum.mempty`.
+
+        Args:
+            value_type: The concrete type to build the identity for --
+                `int`, `float`, or any type implementing `SupportsOne`.
+
+        Returns:
+            A new Product wrapping that type's multiplicative identity.
+        """
+        if value_type is int:
+            return Product(value=1)
+        if value_type is float:
+            return Product(value=1.0)
+        return Product(value=value_type.one())

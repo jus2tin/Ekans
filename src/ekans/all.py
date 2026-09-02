@@ -3,11 +3,11 @@
 from dataclasses import dataclass
 
 from ekans.extractable import Extractable
-from ekans.semigroup import Semigroup
+from ekans.monoid import Monoid
 
 
 @dataclass(frozen=True, eq=False)
-class All(Semigroup, Extractable[bool]):
+class All(Monoid, Extractable[bool]):
     """Wraps a bool, combining two via logical AND.
 
     Attributes:
@@ -53,3 +53,13 @@ class All(Semigroup, Extractable[bool]):
             The wrapped boolean.
         """
         return self.value
+
+    @classmethod
+    def mempty(cls) -> "All":
+        """Construct the identity for logical AND.
+
+        Returns:
+            `All(value=True)` -- combining with `True` via AND leaves
+            any value unchanged.
+        """
+        return All(value=True)

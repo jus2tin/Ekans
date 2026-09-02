@@ -7,6 +7,7 @@ from semigroup_laws import assert_semigroup_law
 from ekans.ap import Ap
 from ekans.extractable import Extractable
 from ekans.identity import Identity
+from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup
 
 
@@ -19,6 +20,24 @@ class _Box(Semigroup):
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, _Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+@dataclass(frozen=True, eq=False)
+class _MonoidBox(Monoid):
+    value: int
+
+    def mappend(self, other: "_MonoidBox") -> "_MonoidBox":
+        return _MonoidBox(value=self.value + other.value)
+
+    @classmethod
+    def mempty(cls) -> "_MonoidBox":
+        return _MonoidBox(value=0)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _MonoidBox) and self.value == other.value
 
     def __hash__(self) -> int:
         return hash(self.value)
@@ -89,3 +108,29 @@ def test_mappend_extract_homomorphism() -> None:
     x = _make_ap(2)
     y = _make_ap(3)
     assert x.mappend(y).extract() == x.extract().mappend(y.extract())
+
+
+def test_mempty_constructs_the_identity_for_a_monoid_type() -> None:
+    assert Ap.mempty(_MonoidBox) == Ap(value=Identity(value=_MonoidBox(value=0)))
+
+
+def test_is_not_a_monoid() -> None:
+    # Ap can't nominally inherit Monoid -- see the spec's Design
+    # section. mempty still works via the explicit Type[X] argument.
+    assert not isinstance(_make_ap(1), Monoid)
+
+
+def test_mempty_is_the_left_identity() -> None:
+    x = Ap(value=Identity(value=_MonoidBox(value=5)))
+    assert Ap.mempty(_MonoidBox).mappend(x) == x
+
+
+def test_mempty_is_the_right_identity() -> None:
+    x = Ap(value=Identity(value=_MonoidBox(value=5)))
+    assert x.mappend(Ap.mempty(_MonoidBox)) == x
+
+
+def test_mempty_extract_equals_the_value_types_own_mempty() -> None:
+    # Monoid/Extractable, non-nominal form -- per the spec's
+    # Cross-Product audit section.
+    assert Ap.mempty(_MonoidBox).extract() == _MonoidBox.mempty()

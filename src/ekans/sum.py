@@ -1,12 +1,13 @@
 """Sum: a Semigroup wrapper combining values via addition."""
 
 from dataclasses import dataclass
-from typing import Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, Type, TypeVar, overload
 
 from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
 
 _AddT = TypeVar("_AddT", bound="SupportsAdd")
+_ZeroT = TypeVar("_ZeroT", bound="SupportsZero")
 
 
 class SupportsAdd(Protocol):
@@ -14,6 +15,15 @@ class SupportsAdd(Protocol):
 
     def __add__(self: _AddT, other: _AddT) -> _AddT:
         """Add `self` and `other`, returning the same type."""
+        ...
+
+
+class SupportsZero(SupportsAdd, Protocol):
+    """Structural bound: anything with a classmethod `zero()`."""
+
+    @classmethod
+    def zero(cls: Type[_ZeroT]) -> _ZeroT:
+        """Return the additive identity for this type."""
         ...
 
 
@@ -72,3 +82,36 @@ class Sum(Semigroup, Extractable[A], Generic[A]):
             The wrapped value.
         """
         return self.value
+
+    @overload
+    @classmethod
+    def mempty(cls, value_type: Type[int]) -> "Sum[int]": ...
+    @overload
+    @classmethod
+    def mempty(cls, value_type: Type[float]) -> "Sum[float]": ...
+    @overload
+    @classmethod
+    def mempty(cls, value_type: Type[_ZeroT]) -> "Sum[_ZeroT]": ...
+    @classmethod  # noqa: E301
+    def mempty(cls, value_type: Any) -> Any:
+        """Construct the additive identity for `value_type`.
+
+        Does not override `Monoid.mempty` -- `Sum` doesn't nominally
+        inherit `Monoid` (a classmethod requiring an extra argument
+        would be a genuine LSP violation against its zero-arg
+        contract, verified directly). `int`/`float` are special-cased
+        since they have no `.zero()` of their own; any other type
+        must implement `SupportsZero`.
+
+        Args:
+            value_type: The concrete type to build the identity for --
+                `int`, `float`, or any type implementing `SupportsZero`.
+
+        Returns:
+            A new Sum wrapping that type's additive identity.
+        """
+        if value_type is int:
+            return Sum(value=0)
+        if value_type is float:
+            return Sum(value=0.0)
+        return Sum(value=value_type.zero())

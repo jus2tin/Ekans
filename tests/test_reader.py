@@ -11,6 +11,7 @@ from hypothesis import strategies as st
 from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
 from ekans.functor import Functor, fmap
+from ekans.monoid import Monoid
 from ekans.reader import Reader, const
 from ekans.semigroup import Semigroup, mappend
 
@@ -24,6 +25,24 @@ class _Box(Semigroup):
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, _Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+@dataclass(frozen=True, eq=False)
+class _MonoidBox(Monoid):
+    value: int
+
+    def mappend(self, other: "_MonoidBox") -> "_MonoidBox":
+        return _MonoidBox(value=self.value + other.value)
+
+    @classmethod
+    def mempty(cls) -> "_MonoidBox":
+        return _MonoidBox(value=0)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _MonoidBox) and self.value == other.value
 
     def __hash__(self) -> int:
         return hash(self.value)
@@ -156,3 +175,29 @@ def test_liftA2_lifts_a_two_argument_function() -> None:
     y: Reader[int, int] = Reader(run=lambda env: env + 2)
     lifted = liftA2(lambda a, b: a + b, x, y)
     assert lifted.run(10) == 23
+
+
+def test_mempty_constructs_the_identity_ignoring_the_environment() -> None:
+    r: Reader[str, _MonoidBox] = Reader.mempty(_MonoidBox)
+    assert r.run("anything") == _MonoidBox(value=0)
+    assert r.run("something else") == _MonoidBox(value=0)
+
+
+def test_is_not_a_monoid() -> None:
+    # Reader can't nominally inherit Monoid -- same non-nominal
+    # reasoning as its conditional Semigroup support.
+    assert not isinstance(Reader(run=lambda r: r), Monoid)
+
+
+def test_mempty_is_the_left_identity() -> None:
+    x: Reader[int, _MonoidBox] = Reader(run=lambda env: _MonoidBox(value=env))
+    a: Reader[int, _MonoidBox] = Reader.mempty(_MonoidBox)
+    lhs = mappend(a, x)
+    assert all(lhs.run(env) == x.run(env) for env in range(-5, 5))
+
+
+def test_mempty_is_the_right_identity() -> None:
+    x: Reader[int, _MonoidBox] = Reader(run=lambda env: _MonoidBox(value=env))
+    a: Reader[int, _MonoidBox] = Reader.mempty(_MonoidBox)
+    lhs = mappend(x, a)
+    assert all(lhs.run(env) == x.run(env) for env in range(-5, 5))

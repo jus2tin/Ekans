@@ -1,10 +1,12 @@
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from monoid_laws import assert_monoid_law
 from semigroup_laws import assert_semigroup_law
 
 from ekans.all import All
 from ekans.extractable import Extractable
+from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup
 
 
@@ -64,3 +66,22 @@ def test_mappend_extract_distributes_over_and(a: bool, b: bool) -> None:
     # Semigroup/Extractable homomorphism, operator form -- same
     # reasoning as Sum's/Product's. See docs/specs/invariance-audit.md.
     assert All(value=a).mappend(All(value=b)).extract() == (a and b)
+
+
+def test_mempty_is_the_identity_for_and() -> None:
+    assert All.mempty() == All(value=True)
+
+
+def test_is_a_monoid() -> None:
+    assert isinstance(All(value=True), Monoid)
+
+
+def test_satisfies_the_monoid_law() -> None:
+    assert_monoid_law(All, All.mempty(), st.booleans())
+
+
+def test_mempty_extract_is_the_and_identity() -> None:
+    # Monoid/Extractable, per the spec's Cross-Product audit: mempty's
+    # extracted value is the identity for the operation mappend
+    # delegates to.
+    assert All.mempty().extract() is True

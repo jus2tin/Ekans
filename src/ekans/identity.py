@@ -1,13 +1,17 @@
 """The identity functor: a trivial wrapper around a single value."""
 
 from dataclasses import dataclass
-from typing import Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
 
 from ekans.applicative import Applicative
 from ekans.extractable import Extractable
 
+if TYPE_CHECKING:
+    from ekans.monoid import Monoid
+
 A = TypeVar("A")
 B = TypeVar("B")
+S = TypeVar("S", bound="Monoid")
 
 
 @dataclass(frozen=True, eq=False)
@@ -97,3 +101,25 @@ class Identity(Applicative[A], Extractable[A], Generic[A]):
             The wrapped value.
         """
         return self.value
+
+    @classmethod
+    def mempty(cls, value_type: Type[S]) -> "Identity[S]":
+        """Construct the identity element for `value_type`, wrapped.
+
+        Does not override `Monoid.mempty` -- `Identity` doesn't
+        nominally inherit `Monoid`, same reasoning as its conditional
+        `Semigroup` support (see `ekans.semigroup.mappend`). Unlike
+        `mappend`, this works as a classmethod directly on `Identity`
+        rather than needing a free function -- `S` here is a fresh,
+        independently-bound TypeVar, not `Identity`'s own `A`, so it
+        doesn't contaminate every `Identity[A]` instance the way a
+        nominal instance method would have.
+
+        Args:
+            value_type: The concrete Monoid type to build the identity
+                for.
+
+        Returns:
+            A new Identity wrapping `value_type.mempty()`.
+        """
+        return Identity(value=value_type.mempty())
