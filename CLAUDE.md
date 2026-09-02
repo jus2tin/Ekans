@@ -146,16 +146,45 @@ mypy src tests --strict
 - Commits: one commit per type/class. Each type class or concrete type (e.g. `Identity`, `Proxy`) lands as its own reviewed commit rather than being batched with others.
 - No print()/logging requirement — dropped. A pure functional library shouldn't be reaching for logging as a matter of course; if a genuine need comes up later, decide then rather than enforcing a blanket rule now.
 
-### Spec-driven: spec → tickets → implementation
+### Implementation Protocol (spec → tickets → implementation)
 
-For any new type class or concrete type (not just Functor — this is the standing process now):
+**Invocation:** "let's follow the implementation protocol for: `<Name>`" means run every phase below, in order, for that type class or concrete type. Don't skip a phase or collapse two together, even if a phase looks trivial for this particular `<Name>` — say so explicitly and move on, rather than silently omitting it. This is the standing process for any new type class or concrete type, not a Functor-specific one-off.
 
-1. **Spec first.** Claude drafts a spec at `docs/specs/<name>.md` (see `docs/specs/functor.md` for the template shape: Status, Summary, Motivation, Design, Concrete instances in scope, Testing strategy, Documentation requirements, Implementation constraints, Out of scope, Open questions/risks). Include law statements or other formal behavior contracts explicitly, not just prose. Every spec's Implementation constraints section includes, at minimum: "Implement only what is explicitly requested in the ticket. Do not add convenience functions, helper utilities, or alternative syntax sugar unless specified." You review and edit it — nothing gets built against an unreviewed spec.
-2. **Tickets derive from the spec, not the other way around.** Once the spec is stable, Claude breaks it into tickets in `TICKETS.md` (see that file's own header for format/lifecycle) — one ticket per deliverable, each naming which spec it came from.
-3. **Signature review before implementation.** Before writing any code for a ticket, Claude posts just the Python signature(s) and docstring(s) it plans to use — no bodies, no tests yet. Wait for an explicit "approved" before writing anything else. This is per ticket, not per spec — a code sketch already shown in the spec doesn't count as pre-approval for the ticket's actual signature.
-4. **Implementation follows the existing Code Requirements and TDD** (see Testing above) per ticket, once its signature is approved.
-5. **Claude closes each ticket itself** once its Definition of Done is verifiably met — no separate sign-off step. `docs/HOWTO.md` gets updated as part of the ticket that introduces the documented concept, not as an afterthought.
-6. The spec+ticket artifacts themselves go through the normal branch+PR workflow like any other change.
+**Phase 0 — Clarifying questions (at most 30, batched via `AskUserQuestion`, ~4 per batch).**
+Ask only about genuine, unresolved forks for this specific `<Name>` — don't re-litigate patterns already settled elsewhere in this file (equality convention, ABC-vs-Protocol default, currying, etc.). Recurring categories worth checking every time:
+- Method and free-function naming, and free-function argument order.
+- Which concrete types get retrofitted in this round vs. deferred, and why if there's a known blocker (e.g. `Const` needing `Semigroup`/`Monoid`).
+- Typing-precision approach for any new abstract method — instance methods and classmethods behave differently here (see Phase 1).
+- Law-testing scope: which laws, and whether an existing law-helper should be extended rather than duplicated.
+- Anything the user themselves flagged as conditional ("if scoped", "if needed") — resolve it explicitly rather than assuming either way.
+
+**Phase 1 — Technical verification, before writing anything down.**
+Every factual claim that goes into the spec must be checked, not asserted — this project has hit real, non-obvious mypy behavior on nearly every round so far. For each new piece of design, build it in a throwaway scratch file and run `mypy --strict` on it (delete the scratch file once done):
+- If composing multiple existing ABCs, confirm the MRO actually resolves — and check whether a base already reachable through another listed base is now redundant (drop it; a redundant explicit base produces a contradictory MRO, not a harmless duplicate).
+- If overriding an inherited abstract method, check exactly which error code(s) mypy raises. Instance methods with a `self`-bound TypeVar usually only complain about narrowed parameters; classmethods (method-scoped TypeVars, no `self` to bind them) often complain about both parameter and return.
+- If adding a free function with per-type `@overload`s, verify actual precision with `reveal_type` — a bare class reference (not yet a constructed value) is the known failure mode, silently degrading to `Any` with no error; values that already carry their own type parameter are usually fine.
+- If adding a law, work out the exact formula by hand, then verify it holds for a correct implementation *and* gets caught by a deliberately broken one. Watch for "vacuous pass" gotchas — a law can be trivially satisfied by a bug that just short-circuits (e.g. "ignore the argument, return `self` unchanged" satisfied `Apply`'s associativity law even though it's obviously wrong).
+
+**Phase 2 — Draft the spec, wait for approval.**
+`docs/specs/<name>.md` (see `docs/specs/functor.md` for the template shape: Status, Tickets link, Summary, Motivation, Design, Concrete instances in scope, Testing strategy, Documentation requirements, Implementation constraints, Out of scope, Open questions/risks). Every Design claim states what Phase 1 actually verified — "Verified against `mypy --strict`: ..." — not just what's intended. Every spec's Implementation constraints section includes, at minimum: "Implement only what is explicitly requested in the ticket. Do not add convenience functions, helper utilities, or alternative syntax sugar unless specified." `Status: Draft — awaiting review` until approved, then flip to `Approved` in the same PR that gets merged. Nothing gets built against an unreviewed spec.
+
+**Phase 3 — Tickets derive from the spec, not the other way around.**
+Once the spec is approved, break it into tickets in `TICKETS.md` (see that file's own header for format/lifecycle) — one ticket per deliverable, each naming which spec it came from. No spec, no ticket.
+
+**Phase 4 — Per ticket: signature review, then TDD, then close.**
+1. **Signature review before implementation.** Post just the Python signature(s) and docstring(s) planned — no bodies, no tests yet. Wait for an explicit "approved" before writing anything else. This is per ticket, not per spec — a code sketch already shown in the spec doesn't count as pre-approval for the ticket's actual signature.
+2. **Show the red step.** Write the failing test(s) first, run them, and show the actual pytest output (a real failure or a collection/import error) before writing any implementation code. Never claim or assume a test is red without having run it.
+3. **Implement exactly what was approved.** No unrequested convenience functions, helper utilities, or alternative syntax sugar.
+4. **Run the full check suite:** `pytest` (100% coverage), `mypy src tests --strict`, `black --check`, `isort --check`, `flake8`.
+5. **Every `# type: ignore` names its exact error code and carries a one-sentence explanation** of why Python's type system forced it. A bare `type: ignore` is never acceptable.
+6. **If real friction surfaces — a design gap, not just a typing nit — fix it at the source, don't paper over it with ignores.** Document the correction plainly in both the spec (a "Correction found during T-XXX, applied to T-YYY's file" note) and the ticket's own text, even when it means editing an earlier, already-committed ticket's file on the same branch.
+7. **Verify free-function precision with a throwaway probe** (`src/ekans/_probe.py` + `reveal_type`), then delete it.
+8. **Update `docs/HOWTO.md` with a real section or addition, not a stub.** If no concrete type implements the new class yet, use a small local illustrative type (matching the existing `Box` pattern) rather than one that doesn't actually support it yet. Verify every example in the doc actually runs before committing it — don't assume.
+9. **Close the ticket** (`**Status:** Closed` in `TICKETS.md`) once its Definition of Done is verifiably met — no separate sign-off step required.
+10. **Commit with a message that explains what shipped and any corrections/gotchas found along the way**, not just "implements X."
+
+**Phase 5 — PR and merge.**
+Push the branch, open a PR summarizing every ticket closed and any notable findings from Phase 1/4, merge it via `gh` (installed at `~/AppData/Local/Programs/gh`, on PATH), sync local `main`, and prune stale remote-tracking branches (`git fetch origin --prune`) so unmerged feature branches don't pile up across sessions.
 
 ## Code Requirements
 
