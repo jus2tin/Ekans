@@ -394,28 +394,30 @@ Spec: [`docs/specs/monad.md`](docs/specs/monad.md)
 
 ### T-050: Monad ABC
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-015 (Applicative ABC), T-046 (Bind ABC)
 
-Add `src/ekans/monad.py` with `Monad[A_co](Applicative[A_co], Bind[A_co], Generic[A_co])` per the spec: pure composition, no new abstract methods. Verified in Phase 1 that the MRO resolves cleanly despite `Applicative` and `Bind` both independently reaching `Apply`, and that no `fmap`/`ap`/`bind` re-declaration is needed (unlike `Applicative`'s own re-declaration from `Apply`). Includes the real `docs/HOWTO.md` `Monad` section.
+Add `src/ekans/monad.py` with `Monad[A_co](Applicative[A_co], Bind[A_co], Generic[A_co])` per the spec: pure composition. Verified in Phase 1 that the MRO resolves cleanly despite `Applicative` and `Bind` both independently reaching `Apply`. Includes the real `docs/HOWTO.md` `Monad` section.
+
+**Amended during T-051:** the initial "no `bind` re-declaration needed" finding was verified only against a concrete subclass's own chain, not the *abstract* `Monad[A]` handle the law helper actually needs. Confirmed directly that a `.bind()` call on a bare `Monad[A]`-typed value resolves to the inherited `Bind[B]`, not `Monad[B]`, without a re-declaration -- same gap `Applicative.ap`'s own re-declaration from `Apply` already exists to close. Fixed by adding `Monad`'s own `bind` re-declaration (narrowing `Bind[B]` to `Monad[B]`, `# type: ignore[override]`). See the spec's Design section correction note.
 
 ### T-051: Monad law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-050
 
 `tests/monad_laws.py`: `assert_monad_law(point, values, equal=None)` -- left identity (`point(a).bind(f) == f(a)`) and right identity (`m.bind(point) == m`), expressed via `point` alone, same shape as `applicative_laws.py`. Associativity is not retested (already covered by `Bind`'s own law). T-052/T-053 are its callers.
 
 ### T-052: Identity implements Monad
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-050, T-051
 
 Retrofit `Identity[A]`'s base classes to `Monad[A]` + `Extractable[A]` only, dropping the now-redundant explicit `Applicative[A]`/`Bind[A]` (MRO conflict otherwise -- same lesson as T-017/T-019). No new methods -- everything already implemented. Law test via T-051's helper. Update `docs/HOWTO.md`'s `Identity` section with a short note.
 
 ### T-053: Reader implements Monad
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-050, T-051
 
 Retrofit `Reader[R, A]`'s base classes to `Monad[A]` only, dropping the now-redundant explicit `Applicative[A]`/`Bind[A]`. No new methods. Law test via T-051's helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s other law tests). Update `docs/HOWTO.md`'s `Reader` section with a short note.

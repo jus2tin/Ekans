@@ -8,6 +8,7 @@ from bind_laws import assert_bind_law
 from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
+from monad_laws import assert_monad_law
 
 from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
@@ -15,6 +16,7 @@ from ekans.bind import Bind, bind
 from ekans.extractable import Extractable
 from ekans.functor import fmap
 from ekans.identity import Identity
+from ekans.monad import Monad
 from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup, mappend
 
@@ -260,3 +262,11 @@ def test_bind_extract_law() -> None:
 
     m = Identity(value=5)
     assert m.bind(f).extract() == f(m.extract()).extract()
+
+
+def test_is_a_monad() -> None:
+    assert isinstance(Identity(value=1), Monad)
+
+
+def test_satisfies_the_monad_law() -> None:
+    assert_monad_law(Identity.point, st.integers())

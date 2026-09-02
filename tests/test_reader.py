@@ -8,11 +8,13 @@ from bind_laws import assert_bind_law
 from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
+from monad_laws import assert_monad_law
 
 from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
 from ekans.bind import Bind, bind
 from ekans.functor import Functor, fmap
+from ekans.monad import Monad
 from ekans.monoid import Monoid
 from ekans.reader import Reader, const
 from ekans.semigroup import Semigroup, mappend
@@ -235,3 +237,23 @@ def _compare_bind_readers(a: Bind[int], b: Bind[int]) -> bool:
 
 def test_satisfies_the_bind_law() -> None:
     assert_bind_law(_make_reader, st.integers(), equal=_compare_bind_readers)
+
+
+def test_is_a_monad() -> None:
+    assert isinstance(Reader(run=lambda r: r), Monad)
+
+
+def _compare_monad_readers(a: Monad[int], b: Monad[int]) -> bool:
+    """Typed comparator for assert_monad_law's `equal` parameter.
+
+    Can't reuse `_compare_readers`/`_compare_bind_readers` -- each is
+    typed against its own law helper's parameter type (`Functor[int]`/
+    `Bind[int]`), and neither is a `Monad[int]` as far as mypy's
+    concerned here (same reasoning as the other comparators above).
+    """
+    assert isinstance(a, Reader) and isinstance(b, Reader)
+    return all(a.run(env) == b.run(env) for env in range(-5, 5))
+
+
+def test_satisfies_the_monad_law() -> None:
+    assert_monad_law(Reader.point, st.integers(), equal=_compare_monad_readers)

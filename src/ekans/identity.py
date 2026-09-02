@@ -3,9 +3,8 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
 
-from ekans.applicative import Applicative
-from ekans.bind import Bind
 from ekans.extractable import Extractable
+from ekans.monad import Monad
 
 if TYPE_CHECKING:
     from ekans.monoid import Monoid
@@ -16,7 +15,7 @@ S = TypeVar("S", bound="Monoid")
 
 
 @dataclass(frozen=True, eq=False)
-class Identity(Applicative[A], Bind[A], Extractable[A], Generic[A]):
+class Identity(Monad[A], Extractable[A], Generic[A]):
     """Wraps a single value without adding any structure.
 
     Attributes:

@@ -24,6 +24,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Extractable: getting a value out of a box](#extractable-getting-a-value-out-of-a-box)
 - [Monoid: something out of nothing](#monoid-something-out-of-nothing)
 - [Bind: chaining boxes without nesting them](#bind-chaining-boxes-without-nesting-them)
+- [Monad: Applicative and Bind, evolved](#monad-applicative-and-bind-evolved)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -123,6 +124,8 @@ Identity(value=5).ap(wrapped_fn)  # Identity(value='5')
 ```
 
 Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, `point`/`ap`/`fmap` already do all the work.
+
+`Identity` also has `bind` (see the `Bind` section below): `Identity(value=5).bind(lambda a: Identity(value=str(a)))` gives `Identity(value='5')` — no nesting, since `bind` un-nests automatically where `fmap` wouldn't. With both `Applicative` and `Bind` in hand, `Identity` is a `Monad` too (see that section below), for free — `class Identity(Monad[A], Extractable[A], Generic[A])` is the whole story, same zero-effort composition `Applicative` already demonstrated for `Pointed` + `Apply`.
 
 **Conditionally a `Semigroup`, but only via the free function.** `Identity[A]` can `mappend` two of itself precisely when `A` can — `Identity(value=1)` and `Identity(value=2)` combine fine if the wrapped value knows how, but there's no principled way to combine `Identity(value="a")` and `Identity(value="b")` unless `str` itself is a `Semigroup` (it isn't, here). Because that constraint lives on `A`, not on `Identity` itself, `Identity` never nominally inherits `Semigroup` — instead, `ekans.semigroup.mappend(a, b)` is a free function bounded by `TypeVar("S", bound=Semigroup)`, so calling it on `Identity[str]` is a `mypy --strict` error, not a runtime crash. See the `Semigroup` section below for the full story.
 
@@ -317,6 +320,8 @@ Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that se
 `Reader.mempty(SomeMonoidType)` builds the identity element the same way `Reader.point` builds any other value — ignoring the environment entirely: `Reader.mempty(Box).run(anything)` always returns `Box.mempty()`, no matter what `anything` is.
 
 `Reader` is also `Bind` (see that section below): `x.bind(f)` threads the *same* environment into both `self` and whatever `Reader` `f` produces, same threading story as `ap` — `x.bind(f).run(r)` calls `x.run(r)` first, feeds that result to `f`, then runs the resulting `Reader` against that same `r` again.
+
+With both `Applicative` and `Bind` in hand, `Reader` is a `Monad` too (see that section below), the same free composition `Identity` gets — `class Reader(Monad[A], Generic[R, A])` is the whole story, no new methods needed.
 
 ## Apply: when the function is also in a box
 
@@ -736,10 +741,59 @@ Verified directly: holds for a correct `bind`, and genuinely caught by a deliber
 
 **Why `Const` doesn't get a `Bind` instance.** `Const[A, B]`'s `bind` would need `f: Callable[[B], Const[A, C]]` — but `Const` never stores anything of type `B` to actually hand `f`, the exact same reason `Const.fmap` is a no-op re-tag. The only well-typed `bind` for `Const` would have to ignore `f` entirely, which isn't a stylistic choice to skip — it's two real problems, checked directly rather than assumed: it offers *zero* capability beyond what `fmap` already provides (a `bind` that never calls its function isn't doing anything new), and it has a genuine type-precision failure — `reveal_type` on a `Const.bind(...)` call resolves to `Const[int, Never]`, not a sensible type, because nothing in the expression ever pins down what the result's phantom type should be. `Identity` and `Reader` (see their sections above) are the real, shipped instances.
 
+## Monad: Applicative and Bind, evolved
+
+`Applicative` lets you lift plain values and apply wrapped functions. `Bind` lets you chain box-producing functions without nesting boxes. `Monad` is just both of those at once — no new capability, no new method, purely the combination:
+
+```python
+from dataclasses import dataclass
+from typing import Callable, Generic, TypeVar
+
+from ekans.monad import Monad
+
+A = TypeVar("A")
+B = TypeVar("B")
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Monad[A], Generic[A]):
+    value: A
+
+    def fmap(self, f: Callable[[A], B]) -> "Box[B]":
+        return Box(value=f(self.value))
+
+    @classmethod
+    def point(cls, value: A) -> "Box[A]":
+        return Box(value=value)
+
+    def ap(self, f: "Box[Callable[[A], B]]") -> "Box[B]":
+        return Box(value=f.value(self.value))
+
+    def bind(self, f: Callable[[A], "Box[B]"]) -> "Box[B]":
+        return f(self.value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and bool(self.value == other.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+```
+
+Any type implementing all four methods above (`fmap`, `point`, `ap`, `bind`) is automatically a `Monad` just by declaring `Box(Monad[A], Generic[A])` instead of listing `Applicative`/`Bind` separately — same trick `Applicative` already used for `Pointed`+`Apply`.
+
+**Two new laws, both about `point` meeting `bind`.** `Bind`'s own associativity law doesn't change here — it's already proven for anything that's `Bind`, which `Monad` requires anyway, so it isn't retested. What's genuinely new is the pair of laws connecting the two halves: building a box with `point` and immediately unwrapping it with `bind` should be the same as just calling the function directly, and binding a box with `point` itself should change nothing:
+
+```
+point(a).bind(f) == f(a)   # left identity
+m.bind(point) == m         # right identity
+```
+
+Verified directly: both hold for a correct implementation, and left identity genuinely catches a broken `point` (one that quietly nudges its argument) — not a vacuous pass.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
-- **Monad** — `Applicative` and `Bind`, evolved.
+
 - **Extend** — the dual of `Bind`: instead of chaining box-producing functions together, it lets a function that consumes a *whole box* (`w a -> b`) be applied across a structure without collapsing it (`extend`/`duplicate`).
 - **Comonad** — `Functor`, `Extractable`, and `Extend`, together — the mirror image of `Monad`.
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.

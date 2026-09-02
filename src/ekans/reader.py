@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
 
-from ekans.applicative import Applicative
-from ekans.bind import Bind
+from ekans.monad import Monad
 
 if TYPE_CHECKING:
     from ekans.monoid import Monoid
@@ -38,7 +37,7 @@ def const(value: A) -> Callable[[C], A]:
 
 
 @dataclass(frozen=True, eq=False)
-class Reader(Applicative[A], Bind[A], Generic[R, A]):
+class Reader(Monad[A], Generic[R, A]):
     """The function arrow `(-> r)`: wraps a function from an environment to a result.
 
     Deliberately has no `__eq__`/`__hash__` override, unlike Identity/
