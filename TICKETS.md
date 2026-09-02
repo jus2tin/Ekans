@@ -214,7 +214,7 @@ Same shape as T-025 with a `SupportsMul` `Protocol` (`__mul__`) instead of `Supp
 
 ### T-027: `All` Semigroup instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020
 
 New type: `src/ekans/all.py`, `All` fixed to `bool` (not generic), `mappend` is boolean AND, matching Haskell's `newtype All = All Bool` exactly. `Functional`-based frozen dataclass, type-safe `__eq__`/`__hash__`. Law test via `assert_semigroup_law`. Real `docs/HOWTO.md` `All` section.

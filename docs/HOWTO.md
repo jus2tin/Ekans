@@ -19,6 +19,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Semigroup: squishing two into one](#semigroup-squishing-two-into-one)
 - [Sum: addition, boxed](#sum-addition-boxed)
 - [Product: multiplication, boxed](#product-multiplication-boxed)
+- [All: everyone has to agree](#all-everyone-has-to-agree)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -514,6 +515,19 @@ Product(value=1.5).mappend(Product(value=2))  # Product(value=3.0)
 ```
 
 Wrapping the number in `Product` rather than `Sum` says which combining operation you mean for the exact same underlying `int`/`float` — the same disambiguation `Sum` needed above, just picking the other one.
+
+## All: everyone has to agree
+
+`Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:
+
+```python
+from ekans.all import All
+
+All(value=True).mappend(All(value=True))    # All(value=True)
+All(value=True).mappend(All(value=False))   # All(value=False)
+```
+
+The name gives away the intuition: combine a bunch of `All`s together and the result is `True` only if *all* of them were. Since there's nothing to be generic over — `bool` is `bool`, there's no version of AND that varies by what's inside — `All` skips the `Protocol`/`TypeVar` machinery `Sum`/`Product` needed entirely, and its `__eq__` is typed against plain `object` rather than needing the type-parameter-narrowing trick from `Identity`/`Sum`/`Product`, since there's no type parameter to mismatch in the first place.
 
 ## Coming soon
 
