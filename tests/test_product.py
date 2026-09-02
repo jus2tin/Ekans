@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
 from ekans.extractable import Extractable
+from ekans.foldable import Foldable, toList
 from ekans.monoid import Monoid
 from ekans.product import Product
 from ekans.semigroup import Semigroup
@@ -124,3 +125,18 @@ def test_mempty_extract_is_the_multiplicative_identity() -> None:
     # Monoid/Extractable, non-nominal form -- per the spec's
     # Cross-Product audit section.
     assert Product.mempty(int).extract() == 1
+
+
+def test_is_a_foldable() -> None:
+    assert isinstance(Product(value=2), Foldable)
+
+
+def test_iterates_the_wrapped_value() -> None:
+    assert toList(Product(value=2)) == [2]
+
+
+def test_extractable_foldable_coherence() -> None:
+    # toList(xs) == [extract(xs)] -- see docs/specs/foldable.md's
+    # retrofit Cross-Product audit.
+    product = Product(value=6)
+    assert toList(product) == [product.extract()]
