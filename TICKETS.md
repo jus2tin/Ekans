@@ -360,7 +360,7 @@ Spec: [`docs/specs/bind.md`](docs/specs/bind.md)
 
 ### T-046: Bind ABC + free `bind` function
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-012 (Apply ABC)
 
 Add `src/ekans/bind.py` with `Bind[A_co](Apply[A_co], Generic[A_co])` per the spec: abstract `bind` method, no `fmap`/`ap` re-declaration needed (verified in Phase 1 -- `Bind`'s law only chains `.bind()`, unlike `Applicative`'s chained `.fmap()`/`.ap()`). Free `bind(f, x)` function as a single plain-typed function for now (no `Identity`/`Reader` overload yet, matching `fmap`'s T-001/`ap`'s T-012 precedent). Includes the real `docs/HOWTO.md` `Bind` section, including the `Const` exclusion explained plainly.

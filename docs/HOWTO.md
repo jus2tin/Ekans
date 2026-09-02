@@ -23,6 +23,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
 - [Extractable: getting a value out of a box](#extractable-getting-a-value-out-of-a-box)
 - [Monoid: something out of nothing](#monoid-something-out-of-nothing)
+- [Bind: chaining boxes without nesting them](#bind-chaining-boxes-without-nesting-them)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -679,11 +680,61 @@ Box(value=5).mappend(Box.mempty())  # Box(value=5) -- unchanged either side
 
 So `Sum`/`Product`/`Ap`'s `mempty` takes the type explicitly — `Sum.mempty(int)`, not `Sum.mempty()` — trading a little of Haskell's elegance for something that's actually correct. And because a classmethod requiring that extra argument doesn't honestly satisfy `Monoid`'s zero-argument contract (verified: `mypy --strict` flags it as a real signature-incompatibility error, not a narrow-return-type situation `# type: ignore` could paper over), those three don't nominally inherit `Monoid` at all — only `All` does, since it isn't generic over anything and has nothing to erase. See each type's own section above for its `mempty`.
 
+## Bind: chaining boxes without nesting them
+
+`fmap` transforms what's inside a box with a plain function. `Apply` lets that function itself be boxed. `Bind` handles a third case: what if the function you want to apply *already produces a box of its own*? Plain `fmap` would leave you with a box of boxes — `Bind` flattens that back down to one.
+
+```python
+from dataclasses import dataclass
+from typing import Callable, Generic, TypeVar
+
+from ekans.bind import Bind
+
+A = TypeVar("A")
+B = TypeVar("B")
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Bind[A], Generic[A]):
+    value: A
+
+    def fmap(self, f: Callable[[A], B]) -> "Box[B]":
+        return Box(value=f(self.value))
+
+    def ap(self, f: "Box[Callable[[A], B]]") -> "Box[B]":
+        return Box(value=f.value(self.value))
+
+    def bind(self, f: Callable[[A], "Box[B]"]) -> "Box[B]":
+        return f(self.value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and bool(self.value == other.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+Box(value=5).bind(lambda a: Box(value=str(a)))  # Box(value='5')
+
+from ekans.bind import bind
+bind(lambda a: Box(value=str(a)), Box(value=5))  # Box(value='5') -- free-function form
+```
+
+Compare that to `fmap`: `Box(value=5).fmap(lambda a: Box(value=str(a)))` would give you `Box(value=Box(value='5'))` — a box holding a box, since `fmap` has no idea the function it was handed already produces one. `bind` is exactly `fmap` plus automatically un-nesting the result. This is Haskell's `>>=`, spelled as a method (`x.bind(f)`) and a free function (`bind(f, x)`, action-first, matching this project's `fmap`/`ap` convention rather than `>>=`'s own value-first order).
+
+**The one law: associativity.** Chaining two binds one at a time gives the same answer as threading the second function through the first's result:
+
+```
+m.bind(f).bind(g) == m.bind(lambda x: f(x).bind(g))
+```
+
+Verified directly: holds for a correct `bind`, and genuinely caught by a deliberately broken one (applying `f` twice).
+
+**Why `Const` doesn't get a `Bind` instance.** `Const[A, B]`'s `bind` would need `f: Callable[[B], Const[A, C]]` — but `Const` never stores anything of type `B` to actually hand `f`, the exact same reason `Const.fmap` is a no-op re-tag. The only well-typed `bind` for `Const` would have to ignore `f` entirely, which isn't a stylistic choice to skip — it's two real problems, checked directly rather than assumed: it offers *zero* capability beyond what `fmap` already provides (a `bind` that never calls its function isn't doing anything new), and it has a genuine type-precision failure — `reveal_type` on a `Const.bind(...)` call resolves to `Const[int, Never]`, not a sensible type, because nothing in the expression ever pins down what the result's phantom type should be. `Identity` and `Reader` (see their sections above) are the real, shipped instances.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
-
-- **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.
 - **Extend** — the dual of `Bind`: instead of chaining box-producing functions together, it lets a function that consumes a *whole box* (`w a -> b`) be applied across a structure without collapsing it (`extend`/`duplicate`).
 - **Comonad** — `Functor`, `Extractable`, and `Extend`, together — the mirror image of `Monad`.
