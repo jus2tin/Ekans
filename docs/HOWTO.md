@@ -1176,6 +1176,31 @@ find(lambda a: a > 2, [1, 2, 3, 4])    # Just(value=3)
 find(lambda a: a > 100, [1, 2, 3, 4])  # Nothing()
 ```
 
+**`sum`/`product` take an explicit `start`, matching Python's own `sum(iterable, start)` — not `Type[M]` erasure.** Haskell's own `sum`/`product` lean on a `Num` instance's own zero/one; Python has no such built-in "the identity for this type" lookup, and `foldMap`/`fold` already show one way to solve that (an explicit `Type[M]` argument, since a `Monoid` at least defines its own `mempty()`). But `sum`/`product` aren't working with a `Monoid` at all — just anything supporting `+`/`*` — so there's no `mempty()`-shaped method to call in the first place. Requiring an explicit `start` sidesteps the problem entirely, and happens to match the exact shape Python's own builtin `sum` already uses:
+
+```python
+from ekans.foldable import product, sum
+
+sum([1, 2, 3, 4], 0)       # 10
+sum([], 100)                # 100 -- empty input just returns start
+product([1, 2, 3, 4], 1)   # 24
+```
+
+**`maximum`/`minimum`/`maximumBy`/`minimumBy` raise on empty, matching Python's own `max()`/`min()`.** `maximum`/`minimum` need only `<` (`SupportsLt`, a small structural `Protocol` built for exactly this); `maximumBy`/`minimumBy` take a `key` function instead of Haskell's raw three-way comparator, deliberately matching Python's own `max(iterable, key=...)` idiom rather than importing Haskell's `Ordering` machinery for no local benefit:
+
+```python
+from ekans.foldable import maximum, maximumBy, minimum, minimumBy
+
+maximum([3, 1, 4, 1, 5, 9, 2, 6])       # 9
+minimum([3, 1, 4, 1, 5, 9, 2, 6])       # 1
+maximumBy(len, ["a", "abc", "ab"])      # "abc"
+minimumBy(len, ["abc", "a", "ab"])      # "a"
+maximum([])
+# Traceback (most recent call last):
+#   ...
+# ValueError: maximum: empty Foldable
+```
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.

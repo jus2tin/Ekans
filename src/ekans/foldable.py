@@ -16,13 +16,29 @@ from typing import (
 
 from ekans.maybe import Just, Nothing
 from ekans.monoid import Monoid
+from ekans.product import SupportsMul
 from ekans.semigroup import Semigroup
+from ekans.sum import SupportsAdd
+
+_LtT = TypeVar("_LtT", bound="SupportsLt")
+
+
+class SupportsLt(Protocol):
+    """Structural bound: anything with a self-typed `__lt__`."""
+
+    def __lt__(self: _LtT, other: _LtT) -> bool:
+        """Whether `self` is less than `other`."""
+        ...
+
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
 B = TypeVar("B")
 M = TypeVar("M", bound=Monoid)
 S = TypeVar("S", bound=Semigroup)
+ADD = TypeVar("ADD", bound=SupportsAdd)
+MUL = TypeVar("MUL", bound=SupportsMul)
+LT = TypeVar("LT", bound=SupportsLt)
 
 
 @runtime_checkable
@@ -426,3 +442,143 @@ def find(
         if predicate(item):
             return Just(value=item)
     return Nothing()
+
+
+def sum(xs: Foldable[ADD], start: ADD) -> ADD:
+    """Combine every element via `+`, starting from `start`.
+
+    Matches Python's own `sum(iterable, start)` shape directly --
+    sidesteps the empty-`Foldable` erasure problem entirely (no
+    `Type[X]` argument needed) since it's just `foldl` with `+` under
+    a friendlier name.
+
+    Args:
+        xs: Anything iterable of `SupportsAdd` values.
+        start: The starting value (also the result for an empty `xs`).
+
+    Returns:
+        `start + x1 + x2 + ...` for every `x` in `xs`.
+    """
+    result = start
+    for item in xs:
+        result = result + item
+    return result
+
+
+def product(xs: Foldable[MUL], start: MUL) -> MUL:
+    """Combine every element via `*`, starting from `start`.
+
+    Args:
+        xs: Anything iterable of `SupportsMul` values.
+        start: The starting value (also the result for an empty `xs`).
+
+    Returns:
+        `start * x1 * x2 * ...` for every `x` in `xs`.
+    """
+    result = start
+    for item in xs:
+        result = result * item
+    return result
+
+
+def maximum(xs: Foldable[LT]) -> LT:
+    """The largest element, via `<`.
+
+    Args:
+        xs: Anything iterable of `SupportsLt` values.
+
+    Returns:
+        The maximum element.
+
+    Raises:
+        ValueError: If `xs` is empty (matching Python's own `max()`
+            and Haskell's own partial `maximum` -- two independent,
+            already-established reasons for the same behavior).
+    """
+    items = list(xs)
+    if not items:
+        raise ValueError("maximum: empty Foldable")
+    result = items[0]
+    for item in items[1:]:
+        if result < item:
+            result = item
+    return result
+
+
+def minimum(xs: Foldable[LT]) -> LT:
+    """The smallest element, via `<`.
+
+    Args:
+        xs: Anything iterable of `SupportsLt` values.
+
+    Returns:
+        The minimum element.
+
+    Raises:
+        ValueError: If `xs` is empty.
+    """
+    items = list(xs)
+    if not items:
+        raise ValueError("minimum: empty Foldable")
+    result = items[0]
+    for item in items[1:]:
+        if item < result:
+            result = item
+    return result
+
+
+def maximumBy(key: Callable[[A], LT], xs: Foldable[A]) -> A:
+    """The element for which `key` is largest.
+
+    Deliberately a `key`-function, not Haskell's raw three-way
+    comparator -- matches Python's own `max(iterable, key=...)` idiom
+    directly, a deliberate divergence recorded in
+    docs/specs/foldable.md's Design section.
+
+    Args:
+        key: Maps each element to something comparable.
+        xs: Anything iterable.
+
+    Returns:
+        The element with the largest `key(element)`.
+
+    Raises:
+        ValueError: If `xs` is empty.
+    """
+    items = list(xs)
+    if not items:
+        raise ValueError("maximumBy: empty Foldable")
+    result = items[0]
+    result_key = key(result)
+    for item in items[1:]:
+        item_key = key(item)
+        if result_key < item_key:
+            result = item
+            result_key = item_key
+    return result
+
+
+def minimumBy(key: Callable[[A], LT], xs: Foldable[A]) -> A:
+    """The element for which `key` is smallest.
+
+    Args:
+        key: Maps each element to something comparable.
+        xs: Anything iterable.
+
+    Returns:
+        The element with the smallest `key(element)`.
+
+    Raises:
+        ValueError: If `xs` is empty.
+    """
+    items = list(xs)
+    if not items:
+        raise ValueError("minimumBy: empty Foldable")
+    result = items[0]
+    result_key = key(result)
+    for item in items[1:]:
+        item_key = key(item)
+        if item_key < result_key:
+            result = item
+            result_key = item_key
+    return result

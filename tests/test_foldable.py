@@ -1,3 +1,4 @@
+import builtins
 import sys
 from dataclasses import dataclass
 from functools import reduce
@@ -25,9 +26,15 @@ from ekans.foldable import (
     foldr,
     foldr1,
     length,
+    maximum,
+    maximumBy,
+    minimum,
+    minimumBy,
     notElem,
     null,
     or_,
+    product,
+    sum,
     toList,
 )
 from ekans.maybe import Just, Nothing
@@ -133,7 +140,7 @@ def test_foldr_preserves_right_associativity() -> None:
 
 @given(st.lists(st.integers(), max_size=50))
 def test_foldr_matches_python_sum(xs: List[int]) -> None:
-    assert foldr(lambda a, b: a + b, 0, xs) == sum(xs)
+    assert foldr(lambda a, b: a + b, 0, xs) == builtins.sum(xs)
 
 
 def test_foldr_is_stack_safe_for_a_large_input() -> None:
@@ -144,7 +151,7 @@ def test_foldr_is_stack_safe_for_a_large_input() -> None:
         result = foldr(lambda a, b: a + b, 0, big)
     finally:
         sys.setrecursionlimit(old_limit)
-    assert result == sum(big)
+    assert result == builtins.sum(big)
 
 
 def test_foldl_basic() -> None:
@@ -171,7 +178,7 @@ def test_foldl_is_stack_safe_for_a_large_input() -> None:
         result = foldl(lambda a, b: a + b, 0, big)
     finally:
         sys.setrecursionlimit(old_limit)
-    assert result == sum(big)
+    assert result == builtins.sum(big)
 
 
 def test_foldable_abc_foldr_override_is_used() -> None:
@@ -410,3 +417,72 @@ def test_find_short_circuits() -> None:
 
     find(predicate, [1, 2, 3, 4])
     assert calls == [1, 2]
+
+
+def test_sum_basic() -> None:
+    assert sum([1, 2, 3, 4], 0) == 10
+
+
+def test_sum_empty_returns_start() -> None:
+    assert sum([], 100) == 100
+
+
+@given(st.lists(st.integers(), max_size=50), st.integers())
+def test_sum_matches_python_sum(xs: List[int], start: int) -> None:
+    assert sum(xs, start) == builtins.sum(xs, start)
+
+
+def test_product_basic() -> None:
+    assert product([1, 2, 3, 4], 1) == 24
+
+
+def test_product_empty_returns_start() -> None:
+    assert product([], 7) == 7
+
+
+def test_maximum_basic() -> None:
+    assert maximum([3, 1, 4, 1, 5, 9, 2, 6]) == 9
+
+
+@given(st.lists(st.integers(), min_size=1, max_size=50))
+def test_maximum_matches_python_max(xs: List[int]) -> None:
+    assert maximum(xs) == builtins.max(xs)
+
+
+def test_maximum_raises_on_empty() -> None:
+    with pytest.raises(ValueError):
+        maximum([])
+
+
+def test_minimum_basic() -> None:
+    assert minimum([3, 1, 4, 1, 5, 9, 2, 6]) == 1
+
+
+@given(st.lists(st.integers(), min_size=1, max_size=50))
+def test_minimum_matches_python_min(xs: List[int]) -> None:
+    assert minimum(xs) == builtins.min(xs)
+
+
+def test_minimum_raises_on_empty() -> None:
+    with pytest.raises(ValueError):
+        minimum([])
+
+
+def test_maximumBy_basic() -> None:
+    words = ["a", "abc", "ab"]
+    assert maximumBy(len, words) == "abc"
+
+
+def test_maximumBy_raises_on_empty() -> None:
+    with pytest.raises(ValueError):
+        maximumBy(len, [])
+
+
+def test_minimumBy_basic() -> None:
+    words = ["abc", "a", "ab"]
+    assert minimumBy(len, words) == "a"
+
+
+def test_minimumBy_raises_on_empty() -> None:
+    with pytest.raises(ValueError):
+        minimumBy(len, [])

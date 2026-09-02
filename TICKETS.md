@@ -568,7 +568,7 @@ Documentation: addition to the `Foldable` HOWTO section covering this function g
 
 ### T-066: Numeric and ordering derived functions
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-064
 
 Add to `src/ekans/foldable.py`: `sum(xs)`/`product(xs)`, reusing the existing `SupportsAdd`/`SupportsMul` `Protocol`s from `sum.py`/`product.py` directly (verified importable, no circular-import issue). New `SupportsLt` `Protocol` (self-typed `__lt__`, matching `SupportsAdd`/`SupportsMul`'s shape) for `maximum(xs)`/`minimum(xs)`, both raising `ValueError` on empty input (matching Python's own `max()`/`min()` *and* Haskell's own partial `maximum`/`minimum` -- two independent, already-established reasons, not a new one invented here). `maximumBy(key, xs)`/`minimumBy(key, xs)` -- deliberately a `key`-function per review, not Haskell's raw three-way comparator, matching Python's own `max(iterable, key=...)` idiom; recorded as an intentional divergence.
