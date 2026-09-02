@@ -335,7 +335,7 @@ Add `Ap.mempty(cls, value_type: Type[S])` where `S: Monoid`, returning `Ap(value
 
 ### T-043: Identity's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Add `Identity.mempty(cls, value_type: Type[S])` where `S: Monoid` (a fresh method-scoped `TypeVar`, independent of `Identity`'s own `A`), returning `Identity(value=value_type.mempty())`. Verified in Phase 1 this works as a classmethod directly on `Identity` -- no free function needed, unlike `mappend`, since a classmethod's fresh `TypeVar` doesn't contaminate every `Identity[A]` instance the way a nominal instance method would have. Tests: construction, left/right identity, genuine rejection of a non-`Monoid` `value_type` (e.g. `Identity.mempty(str)`), `reveal_type` precision probe. Update `docs/HOWTO.md`'s `Identity` section.
