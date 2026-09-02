@@ -168,7 +168,7 @@ Add `src/ekans/semigroup.py` with the `Semigroup(Functional)` abstract class per
 
 ### T-021: Semigroup associativity law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020
 
 `tests/semigroup_laws.py`: `assert_semigroup_law(make, values, equal=None)` per the spec's Testing strategy — the single associativity law. T-022's Identity test and later tickets are its callers.
