@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar, Union, overload
 from ekans.apply import Apply
 from ekans.const import Const
 from ekans.pointed import Pointed
+from ekans.tuple2 import Tuple2
 
 if TYPE_CHECKING:
     from ekans.identity import Identity
@@ -88,13 +89,23 @@ def liftA2(
 ) -> "Const[S, C]": ...
 @overload  # noqa: E302
 def liftA2(
+    f: Callable[[A, B], C], fa: "Tuple2[S, A]", fb: "Tuple2[S, B]"
+) -> "Tuple2[S, C]": ...
+@overload  # noqa: E302
+def liftA2(
     f: Callable[[A, B], C], fa: "Applicative[A]", fb: "Applicative[B]"
 ) -> "Applicative[C]": ...
 def liftA2(  # noqa: E302
     f: Callable[[A, B], C],
-    fa: Union["Identity[A]", "Reader[R, A]", "Const[S, A]", "Applicative[A]"],
-    fb: Union["Identity[B]", "Reader[R, B]", "Const[S, B]", "Applicative[B]"],
-) -> Union["Identity[C]", "Reader[R, C]", "Const[S, C]", "Applicative[C]"]:
+    fa: Union[
+        "Identity[A]", "Reader[R, A]", "Const[S, A]", "Tuple2[S, A]", "Applicative[A]"
+    ],
+    fb: Union[
+        "Identity[B]", "Reader[R, B]", "Const[S, B]", "Tuple2[S, B]", "Applicative[B]"
+    ],
+) -> Union[
+    "Identity[C]", "Reader[R, C]", "Const[S, C]", "Tuple2[S, C]", "Applicative[C]"
+]:
     """Lift a two-argument function into two Applicatives of the same shape.
 
     As each new concrete Applicative type is added, this gains its own
@@ -103,11 +114,13 @@ def liftA2(  # noqa: E302
     type keep a precise return type -- same pattern `ap` uses in
     `apply.py`. Without the per-type overloads, this type-checks fine
     but silently degrades to the loose `Applicative[C]` even for a
-    concrete `Identity`/`Reader` call. `Const` is the exception -- it
-    has no real `.ap()`/nominal `Applicative` instance at all (per
-    docs/specs/const-applicative.md's Design section), so its branch
-    combines both sides' held Semigroup values via `mappend` directly,
-    matching `ap`'s own `Const` case in `apply.py`.
+    concrete `Identity`/`Reader` call. `Const`/`Tuple2` are the
+    exception -- neither has a real `.ap()`/nominal `Applicative`
+    instance at all (per docs/specs/const-applicative.md's and
+    docs/specs/tuple2.md's Design sections), so their branches combine
+    both sides' held Semigroup values via `mappend` directly, matching
+    `ap`'s own `Const`/`Tuple2` cases in `apply.py` -- `Tuple2`'s
+    branch also genuinely applies `f` to both real second values.
 
     Args:
         f: A two-argument function to lift.
@@ -116,10 +129,13 @@ def liftA2(  # noqa: E302
 
     Returns:
         A new Applicative of the same shape, wrapping `f` applied to
-        both wrapped values, or, for `Const`, the `mappend` of both
-        sides' held values.
+        both wrapped values, or, for `Const`/`Tuple2`, the `mappend`
+        of both sides' held first values.
     """
     if isinstance(fa, Const) and isinstance(fb, Const):
         return Const(value=fa.value.mappend(fb.value))
+    if isinstance(fa, Tuple2) and isinstance(fb, Tuple2):
+        return Tuple2(first=fa.first.mappend(fb.first), second=f(fa.second, fb.second))
     assert not isinstance(fa, Const) and not isinstance(fb, Const)
+    assert not isinstance(fa, Tuple2) and not isinstance(fb, Tuple2)
     return fb.ap(fa.fmap(lambda a: lambda b: f(a, b)))

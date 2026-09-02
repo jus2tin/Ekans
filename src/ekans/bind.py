@@ -4,18 +4,21 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Callable, Generic, TypeVar, Union, overload
 
 from ekans.apply import Apply
+from ekans.tuple2 import Tuple2
 
 if TYPE_CHECKING:
     from ekans.either import Either, Left, Right
     from ekans.identity import Identity
     from ekans.maybe import Just, Maybe, Nothing
     from ekans.reader import Reader
+    from ekans.semigroup import Semigroup
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
 B = TypeVar("B")
 R = TypeVar("R")
 L = TypeVar("L")
+S = TypeVar("S", bound="Semigroup")
 
 
 class Bind(Apply[A_co], Generic[A_co]):
@@ -70,21 +73,43 @@ def bind(
     f: Callable[[A], "Either[L, B]"], x: "Either[L, A]"
 ) -> "Union[Left[L, B], Right[L, B]]": ...
 @overload
+def bind(f: Callable[[A], "Tuple2[S, B]"], x: "Tuple2[S, A]") -> "Tuple2[S, B]": ...
+@overload
 def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]": ...
-def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]":  # noqa: E302
+def bind(  # noqa: E302
+    f: Union[Callable[[A], "Bind[B]"], Callable[[A], "Tuple2[S, B]"]],
+    x: Union["Bind[A]", "Tuple2[S, A]"],
+) -> Union["Bind[B]", "Tuple2[S, B]"]:
     """Free-function form of `Bind.bind`; delegates to the method.
 
     As each new concrete Bind type is added, this gains its own
     `@overload` (above the loose `Bind[A]` fallback, which must stay
     last) so calls against a known concrete type keep a precise
-    return type -- same pattern `ap` uses in `apply.py`.
+    return type -- same pattern `ap` uses in `apply.py`. `Tuple2` is
+    the exception -- it has no `.bind()` method at all (nominal
+    `Bind[B]` is impossible for it, per docs/specs/tuple2.md's Design
+    section), so its branch combines both sides' held Semigroup
+    values via `mappend` directly, genuinely applying `f` to the real
+    second value first.
 
     Args:
-        f: A function from the wrapped value to a new Bind of the
-            same shape.
+        f: A function from the wrapped value to a new Bind (or, for
+            `Tuple2`, a new `Tuple2`) of the same shape.
         x: The wrapped value to apply it to.
 
     Returns:
-        The result of `x.bind(f)`.
+        The result of `x.bind(f)`, or, for `Tuple2`, the `mappend` of
+        both sides' held first values, second set to `f`'s result.
     """
-    return x.bind(f)
+    if isinstance(x, Tuple2):
+        assert callable(f)
+        result = f(x.second)
+        assert isinstance(result, Tuple2)
+        return Tuple2(first=x.first.mappend(result.first), second=result.second)
+    assert not isinstance(x, Tuple2)
+    # f's static type is still the Union from the two branches above --
+    # narrowing x away from Tuple2 doesn't narrow the independent `f`
+    # parameter, since a Callable's return type can't be checked via
+    # isinstance the way a value can. Safe here: only the Bind[A]
+    # overload can reach this line with a real Callable[[A], Bind[B]].
+    return x.bind(f)  # type: ignore[arg-type]
