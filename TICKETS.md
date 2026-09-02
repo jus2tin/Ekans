@@ -538,3 +538,41 @@ Add a `Tuple2` overload to the existing shared free `mappend` (`semigroup.py`) n
 Tests: `mappend`/`mempty` example and property tests (associativity, left/right identity) mirroring the existing conditional-instance shape, plus a genuine `mypy`-level rejection test for a pair where only *one* side satisfies the `Monoid` bound (the concrete verification that the two bounds are independently enforced, not just nominally declared). The `mappend(x, y).extract() == x.extract().mappend(y.extract())` law from the spec's Cross-Product audit, as a property test.
 
 Documentation: `docs/HOWTO.md` addition to the `Tuple2` section explaining the two-independent-bound pattern, contrasted with every prior conditional instance's single bound.
+
+## Foldable
+
+Spec: [`docs/specs/foldable.md`](docs/specs/foldable.md)
+
+### T-064: `Foldable` Protocol, `FoldableABC`, and the core folds
+
+**Status:** Closed
+
+New file `src/ekans/foldable.py`: `Foldable(Protocol[A_co])` requiring only `__iter__` (`A_co` covariant -- verified an invariant TypeVar is a real `mypy --strict` error here), `@runtime_checkable`. `FoldableABC(Generic[A_co])`: override hooks for `foldr` and `length`/`null` only (`NotImplementedError` sentinel = "not overridden"), per the spec's Design section -- not one hook per derived function. Core folds: `foldr(f, initial, xs)` (a plain accumulator loop over `reversed(list(xs))` -- **not** a chain of thunks; per the spec, a literal "trampoline" implementation was tried first and is a genuine bug, verified to blow a deliberately-lowered recursion limit at 100k elements), `foldl(f, initial, xs)` (trivially stack-safe, no reversal needed), `foldMap(monoid_type, f, xs)` and `fold(monoid_type, xs)` (`Type[M]` argument required, same erasure reason as `Sum.mempty()`), `foldr1`/`foldl1` (seedless, raise on empty), `fold1(xs)` (`Semigroup`-only seedless fold, no `Type[M]` needed, raises on empty). Free functions check `isinstance(x, FoldableABC)` and fall back to the generic default on the sentinel.
+
+Also lands the `CLAUDE.md` "Why Foldable is a Protocol" correction: the trampoline description there is wrong as written (verified in Phase 1, not assumed) and gets fixed in the same commit.
+
+Tests (`tests/test_foldable.py`): structural satisfaction (list/tuple/generator/custom `__iter__`-only type, static and runtime `isinstance`, plus a genuine rejection for a non-iterable). **A real stack-safety regression test**: fold tens of thousands of elements with the recursion limit deliberately lowered inside the test, asserting no `RecursionError` -- the test that would have caught the original broken attempt. `FoldableABC` override dispatch proven with a test-only type whose overridden `foldr` is observably different from the generic default. `foldMap`/`fold`/`fold1` tested against real `Monoid`/`Semigroup` test doubles (empty and non-empty where applicable). `foldr1`/`foldl1`/`fold1` tested for the documented `ValueError` on empty input.
+
+Documentation: new `docs/HOWTO.md` Part 3 section (Foldable sits outside both the abstract `Functional` hierarchy and the concrete-type gallery) covering the Protocol's structural nature, the corrected stack-safety story told plainly (including the wrong first attempt), and the `FoldableABC` mechanism.
+
+### T-065: List-shape, boolean, and search derived functions
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add to `src/ekans/foldable.py`: `toList(xs)`, `null(xs)`, `length(xs)` (using `FoldableABC`'s override where present), `concat(xs)` (`Foldable[Iterable[A]] -> List[A]`), `concatMap(f, xs)`. `and_(xs)`/`or_(xs)` (named with a trailing underscore per review -- `and`/`or` are Python keywords, can't be spelled that way at all; matches the stdlib `operator` module's own convention for the identical problem). `any(predicate, xs)`, `all(predicate, xs)`, `elem(x, xs)`, `notElem(x, xs)` -- kept at their exact Haskell/Python names per review (unlike `map`/`fmap`, no real forced collision here; `Sum`/`Product` already exist as distinct capitalized names). `find(predicate, xs) -> Union[Just[A], Nothing[A]]` -- Ekans's own `Maybe`, matching Haskell's own `find :: (a -> Bool) -> t a -> Maybe a` signature directly, verified precise via `reveal_type` and short-circuiting verified via a call-log double.
+
+Tests: example-based per function, plus Hypothesis property tests using Python's own builtins (`len`, `any`, `all`) as the oracle wherever the semantics line up. `find`'s short-circuit and precise return type tested explicitly.
+
+Documentation: addition to the `Foldable` HOWTO section covering this function group.
+
+### T-066: Numeric and ordering derived functions
+
+**Status:** Closed
+**Depends on:** T-064
+
+Add to `src/ekans/foldable.py`: `sum(xs)`/`product(xs)`, reusing the existing `SupportsAdd`/`SupportsMul` `Protocol`s from `sum.py`/`product.py` directly (verified importable, no circular-import issue). New `SupportsLt` `Protocol` (self-typed `__lt__`, matching `SupportsAdd`/`SupportsMul`'s shape) for `maximum(xs)`/`minimum(xs)`, both raising `ValueError` on empty input (matching Python's own `max()`/`min()` *and* Haskell's own partial `maximum`/`minimum` -- two independent, already-established reasons, not a new one invented here). `maximumBy(key, xs)`/`minimumBy(key, xs)` -- deliberately a `key`-function per review, not Haskell's raw three-way comparator, matching Python's own `max(iterable, key=...)` idiom; recorded as an intentional divergence.
+
+Tests: example-based per function, plus Hypothesis property tests using Python's own `sum`/`max`/`min` builtins as the oracle. Empty-input `ValueError` tested for `maximum`/`minimum`.
+
+Documentation: addition to the `Foldable` HOWTO section covering this function group; replaces the `Foldable` stub entry in "Coming soon" with a link to the real section once all three tickets are closed.
