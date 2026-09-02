@@ -417,7 +417,7 @@ Retrofit `Identity[A]`'s base classes to `Monad[A]` + `Extractable[A]` only, dro
 
 ### T-053: Reader implements Monad
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-050, T-051
 
 Retrofit `Reader[R, A]`'s base classes to `Monad[A]` only, dropping the now-redundant explicit `Applicative[A]`/`Bind[A]`. No new methods. Law test via T-051's helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s other law tests). Update `docs/HOWTO.md`'s `Reader` section with a short note.

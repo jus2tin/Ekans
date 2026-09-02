@@ -321,6 +321,8 @@ Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that se
 
 `Reader` is also `Bind` (see that section below): `x.bind(f)` threads the *same* environment into both `self` and whatever `Reader` `f` produces, same threading story as `ap` — `x.bind(f).run(r)` calls `x.run(r)` first, feeds that result to `f`, then runs the resulting `Reader` against that same `r` again.
 
+With both `Applicative` and `Bind` in hand, `Reader` is a `Monad` too (see that section below), the same free composition `Identity` gets — `class Reader(Monad[A], Generic[R, A])` is the whole story, no new methods needed.
+
 ## Apply: when the function is also in a box
 
 `fmap` covers a lot of ground, but it has one blind spot: the function you're mapping with always has to be a plain, ordinary function sitting outside any box. What happens when the function itself is *also* stuck inside a box? That's `Apply`.
