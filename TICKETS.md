@@ -182,10 +182,10 @@ Add the free `mappend(a, b)` function to `src/ekans/semigroup.py`, typed `Identi
 
 ### T-023: `Const[A, B]` `mappend` support
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-022
 
-Add the `Const[S, A] -> Const[S, A] -> Const[S, A]` overload to the free `mappend` function: `Const x mappend Const y = Const (x mappend y)`, ignoring the phantom second parameter, per the spec's Design section. Law test via the T-021 helper. Update `docs/HOWTO.md`'s `Const` section with a short `mappend` addition.
+Add the `Const[S, A] -> Const[S, A] -> Const[S, A]` overload to the free `mappend` function, converting it from T-022's single plain-typed function into a real two-variant `@overload` set: `Const x mappend Const y = Const (x mappend y)`, ignoring the phantom second parameter, per the spec's Design section. The implementation body dispatches on `isinstance` (typed with a real `Union[Identity[S], Const[S, A]]`, not `Any`) rather than delegating to a shared method, since neither `Identity` nor `Const` nominally implements `Semigroup` — see the spec's Design section correction note. Law test via the T-021 helper. Update `docs/HOWTO.md`'s `Const` section with a short `mappend` addition.
 
 ### T-024: `Reader[R, A]` `mappend` support
 

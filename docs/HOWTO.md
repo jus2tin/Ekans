@@ -195,6 +195,8 @@ Same mechanism as `Identity`'s type-safe equality above, just extended to two ty
 
 **Note for later:** `Const` doesn't get a `Pointed` instance yet, and won't until `Semigroup`/`Monoid` exist. In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. No `Monoid`, no honest `Const.point`.
 
+**Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section below for a real, runnable example.
+
 ## Pointed: getting a value into a box
 
 Every box we've built so far, you build by calling its own constructor: `Identity(value=42)`, `Const(value=1)`. `Pointed` is what happens when you want to say that in a *generic* way — "give me a box of this shape, holding this value" — without hardcoding which shape.
@@ -436,7 +438,21 @@ Addition satisfies this (`(1 + 2) + 3 == 1 + (2 + 3)`); subtraction doesn't (`(1
 
 **A first: no override boilerplate at all.** Every other type class here has needed its concrete overrides to narrow a return type away from something loose (`Functor[B]`, `Apply[B]`, ...), usually paired with a `# type: ignore[override]` explaining why. `Semigroup.mappend` sidesteps this entirely with `typing.Self`: the abstract method is declared `def mappend(self, other: Self) -> Self`, and `Self` already means "exactly whatever concrete class this is," precisely, for every subclass, with zero extra typing work.
 
-**Why there's no `Identity`/`Const`/`Reader` instance here.** Unlike `Functor` or `Apply`, `Semigroup` isn't unconditionally true of a container just because it holds *something* — `Identity[A]` only knows how to `mappend` when `A` itself does (there's no way to combine two `Identity[str]`s by squishing their `str`s together with a method `str` doesn't have). Haskell expresses this as a *constrained instance* (`instance Semigroup a => Semigroup (Identity a)`); Python has no direct equivalent at the class level. Ekans' answer: `Identity`, `Const`, and `Reader` never nominally inherit `Semigroup` at all. Instead, once those instances land, they'll show up purely as an overloaded free function bounded by a `TypeVar("S", bound=Semigroup)` — so `mappend(Identity(value=Box(1)), Identity(value=Box(2)))` type-checks, but `mappend(Identity(value="a"), Identity(value="b"))` is rejected by mypy outright, not just by convention. `Box` above isn't a temporary stand-in waiting for a real type to catch up (the way it was for `Functor`) — demonstrating a constrained instance means there will always be a need for a small type that genuinely implements `Semigroup` on its own.
+**Why there's no `Identity`/`Const`/`Reader` class instance here.** Unlike `Functor` or `Apply`, `Semigroup` isn't unconditionally true of a container just because it holds *something* — `Identity[A]` only knows how to `mappend` when `A` itself does (there's no way to combine two `Identity[str]`s by squishing their `str`s together with a method `str` doesn't have). Haskell expresses this as a *constrained instance* (`instance Semigroup a => Semigroup (Identity a)`); Python has no direct equivalent at the class level. Ekans' answer: `Identity` and `Const` never nominally inherit `Semigroup` at all (`Reader` will get the same treatment once it lands). Instead, both show up purely as `ekans.semigroup.mappend`, an overloaded free function bounded by a `TypeVar("S", bound=Semigroup)`:
+
+```python
+from ekans.const import Const
+from ekans.identity import Identity
+from ekans.semigroup import mappend
+
+mappend(Identity(value=Box(1)), Identity(value=Box(2)))  # Identity(value=Box(value=3))
+mappend(Const(value=Box(1)), Const(value=Box(2)))        # Const(value=Box(value=3))
+
+mappend(Identity(value="a"), Identity(value="b"))
+# error: Value of type variable "S" of "mappend" cannot be "str"  [type-var]
+```
+
+That rejection is real, not just documented convention — `str` genuinely isn't a `Semigroup`, and mypy catches it at the call site. `Box` above isn't a temporary stand-in waiting for a real type to catch up (the way it was for `Functor`) — demonstrating a constrained instance means there will always be a need for a small type that genuinely implements `Semigroup` on its own.
 
 ## Coming soon
 
