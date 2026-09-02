@@ -27,6 +27,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Monad: Applicative and Bind, evolved](#monad-applicative-and-bind-evolved)
 - [do: turning bind chains into procedural-looking code](#do-turning-bind-chains-into-procedural-looking-code)
 - [Maybe: a value that might not be there](#maybe-a-value-that-might-not-be-there)
+- [Either: L or R, biased to R](#either-l-or-r-biased-to-r)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -862,7 +863,7 @@ def with_env() -> Generator[Monad[int], Any, Monad[int]]:
 with_env().run(10)  # 31 -- a = 11, b = 20, a + b = 31
 ```
 
-**Short-circuiting comes for free.** `@do` never inspects what it yields — it just calls `.bind()` on it and lets that `Monad`'s own `bind` decide whether to keep going. A `Monad` that short-circuits (`Maybe`'s `Nothing`, a future `Either`'s `Left`) skips calling the rest of the do-block automatically, the same way it would in a manual bind chain — there's no special-casing for this in `@do` itself, and none was needed:
+**Short-circuiting comes for free.** `@do` never inspects what it yields — it just calls `.bind()` on it and lets that `Monad`'s own `bind` decide whether to keep going. A `Monad` that short-circuits (`Maybe`'s `Nothing`, `Either`'s `Left`) skips calling the rest of the do-block automatically, the same way it would in a manual bind chain — there's no special-casing for this in `@do` itself, and none was needed:
 
 ```python
 from ekans.maybe import Just, Nothing
@@ -875,6 +876,8 @@ def with_maybe() -> Generator[Monad[int], Any, Monad[int]]:
 
 with_maybe()  # Nothing()
 ```
+
+`Either` behaves identically — see the `Either` section below for a runnable example with `Left`/`Right`.
 
 ## Maybe: a value that might not be there
 
@@ -925,6 +928,60 @@ mappend(Nothing(), Just(value=Box(value=1)))                 # Just(value=Box(va
 ```
 
 `Maybe.mempty(SomeSemigroupType)` builds the identity element — always `Nothing()`, no matter what `SomeSemigroupType` is. That last part is the interesting bit: every other conditional `mempty` in this library (`Identity`'s, `Const`'s, `Reader`'s) needs its held type to be a full `Monoid`, because it has to call that type's own `mempty()` to produce a real value to hold. `Maybe.mempty` never does that — `Nothing()` is already a valid identity regardless of what `A` is, so the constraint drops all the way down to `Semigroup`. Checked directly: a type that's a `Semigroup` but deliberately *not* a `Monoid` (no `mempty()` of its own at all) still works fine as `Maybe.mempty`'s argument — something that would be a hard `mypy --strict` error for `Identity.mempty`/`Const.mempty`/`Reader.mempty` on the same type.
+
+## Either: L or R, biased to R
+
+`Maybe` tells you *whether* something worked. `Either[L, R]` also tells you *why* it didn't: it's either `Left(value)`, holding an `L` (conventionally an error), or `Right(value)`, holding an `R` (conventionally the real result). Matches Haskell's `data Either a b = Left a | Right b` directly, sealed the same way `Maybe` is:
+
+```python
+from ekans.either import Either, Left, Right
+
+Right(value=5)                       # Right(value=5)
+boom: Either[str, int] = Left(value="boom")
+boom                                  # Left(value='boom')
+```
+
+Unlike `Maybe`'s `Nothing`, `Either`'s `Left` isn't empty — it holds a real value too, just of the *other* type parameter. `fmap`/`point`/`ap`/`bind` all follow the same `Right`-biased convention Haskell uses (`pure = Right`): they operate on `R` and leave a `Left` completely untouched, the same no-op re-tag `Const.fmap` already established for its own untouched parameter:
+
+```python
+Right(value=5).fmap(str)              # Right(value='5')
+boom.fmap(str)                        # Left(value='boom') -- str is never called
+
+Right(value=5).bind(lambda a: Right(value=a + 1))   # Right(value=6)
+boom.bind(lambda a: Right(value=a + 1))             # Left(value='boom') -- the lambda is never called
+```
+
+**The same sealed-class-and-`match`/`case` story as `Maybe`, verified fresh rather than assumed.** `Either`'s own `fmap`/`ap`/`bind`/`point` return `Left[L, R2] | Right[L, R2]`, not the abstract `Either[L, R2]` — for the identical reason `Maybe`'s do (see that section above for the full argument): only the `Union` form lets `match`/`case` prove it's exhaustive.
+
+```python
+def describe(e: "Left[str, int] | Right[str, int]") -> str:
+    match e:
+        case Left(value=lv):
+            return f"error: {lv}"
+        case Right(value=rv):
+            return f"ok: {rv}"
+
+describe(Right(value=5))     # 'ok: 5'
+describe(Left(value="boom"))  # 'error: boom'
+```
+
+**A genuinely new finding, checked rather than inherited from `Maybe`'s precedent.** `Const` never got a `Bind` instance — its untouched parameter is *permanently* phantom, so nothing in the whole type ever pins down what it should be, and `mypy` gives up (`Const[int, Never]`). `Left` looks like it should have the same problem (its own `R` is just as untouched), but it doesn't: verified directly, `Left(value="boom").bind(lambda r: Right(value=str(r)))` resolves to a precise `Left[str, str] | Right[str, str]`, no `Never` in sight. The difference is `Left` has a partner — `Right` — that *does* hold a real `R`, so the pair together make `R` a real, trackable type across all of `Either`, the same way `Nothing`'s `A` stays real because `Just` exists. `Const` never had a partner type to complete a whole `Monad` with; `Left`/`Right` are two halves of one.
+
+**The bare-construction gap here is the same shape as `Maybe`'s `Nothing()`, but better-behaved.** `Right(value=5)` pins `R=int` from the argument, but has nothing at all to infer `L` from; `Left(value="boom")` is the mirror image. Passed straight to something like `reveal_type()`, the untouched side still quietly resolves to `Never`, exactly like bare `Nothing()` does. But assign either to a variable without an annotation, and — checked directly — `mypy --strict` refuses to guess at all: a real `Need type annotation for "..."` error, not a silent decay. `Nothing` can't get this same protection because it has no field whatsoever to anchor *any* of its meaning; `Left`/`Right` each have one real field, and `mypy` uses it. Bracket explicitly (`Left[str, int](value="boom")`) or annotate the target (`boom: Either[str, int] = Left(value="boom")`, as above) either way.
+
+**No `Extractable`, no `Semigroup`/`Monoid` — both by design, not oversight.** `Extractable` is out for the same reason `Maybe`'s `Nothing` is: `Left` has no `R` to give back through a total `extract() -> R`. `Semigroup`/`Monoid` are out for a different reason than `Maybe`'s conditional support — Haskell's own base library doesn't define one for `Either` at all, so there's no established `mappend`/`mempty` shape to port the way `Maybe`'s `Nothing <> x = x` is a direct transcription of a real instance.
+
+`@do` short-circuits on `Either` exactly like it does on `Maybe` — a `Left` anywhere in a do-block halts it immediately, `Right`s thread through normally:
+
+```python
+@do
+def with_either() -> Generator[Monad[int], Any, Monad[int]]:
+    a: int = yield Right(value=1)
+    b: int = yield Left(value="boom")   # halts here
+    return Right(value=a + b)            # never reached
+
+with_either()  # Left(value='boom')
+```
 
 ## Coming soon
 

@@ -5,6 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from ekans.do import do
+from ekans.either import Left, Right
 from ekans.identity import Identity
 from ekans.maybe import Just, Nothing
 from ekans.monad import Monad
@@ -161,3 +162,22 @@ def test_do_short_circuits_with_the_real_maybe_type() -> None:
 
     assert result == Nothing()
     assert reached_past_nothing == []
+
+
+def test_do_short_circuits_with_the_real_either_type() -> None:
+    # Regression test against the shipped Either type, closing out
+    # docs/specs/do.md's original follow-up note, which named both
+    # Maybe and Either explicitly.
+    reached_past_left = []
+
+    @do
+    def computation() -> Generator[Monad[int], Any, Monad[int]]:
+        a: int = yield Right(value=1)
+        b: int = yield Left(value="boom")
+        reached_past_left.append(True)
+        return Right(value=a + b)
+
+    result = computation()
+
+    assert result == Left(value="boom")
+    assert reached_past_left == []

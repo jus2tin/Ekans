@@ -7,6 +7,7 @@ from ekans.const import Const
 from ekans.functor import Functor
 
 if TYPE_CHECKING:
+    from ekans.either import Either, Left, Right
     from ekans.identity import Identity
     from ekans.maybe import Just, Maybe, Nothing
     from ekans.reader import Reader
@@ -16,6 +17,7 @@ A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
 B = TypeVar("B")
 R = TypeVar("R")
+L = TypeVar("L")
 S = TypeVar("S", bound="Semigroup")
 
 
@@ -71,6 +73,16 @@ def ap(f: "Maybe[Callable[[A], B]]", x: "Just[A]") -> "Union[Just[B], Nothing[B]
 def ap(f: "Maybe[Callable[[A], B]]", x: "Nothing[A]") -> "Nothing[B]": ...
 @overload
 def ap(f: "Maybe[Callable[[A], B]]", x: "Maybe[A]") -> "Union[Just[B], Nothing[B]]": ...
+@overload  # noqa: E302
+def ap(
+    f: "Either[L, Callable[[A], B]]", x: "Right[L, A]"
+) -> "Union[Left[L, B], Right[L, B]]": ...
+@overload
+def ap(f: "Either[L, Callable[[A], B]]", x: "Left[L, A]") -> "Left[L, B]": ...
+@overload  # noqa: E302
+def ap(
+    f: "Either[L, Callable[[A], B]]", x: "Either[L, A]"
+) -> "Union[Left[L, B], Right[L, B]]": ...
 @overload
 def ap(f: "Apply[Callable[[A], B]]", x: Apply[A]) -> Apply[B]: ...
 def ap(  # noqa: E302
@@ -79,10 +91,25 @@ def ap(  # noqa: E302
         "Reader[R, Callable[[A], B]]",
         "Const[S, Callable[[A], B]]",
         "Maybe[Callable[[A], B]]",
+        "Either[L, Callable[[A], B]]",
         "Apply[Callable[[A], B]]",
     ],
-    x: Union["Identity[A]", "Reader[R, A]", "Const[S, A]", "Maybe[A]", Apply[A]],
-) -> Union["Identity[B]", "Reader[R, B]", "Const[S, B]", "Maybe[B]", Apply[B]]:
+    x: Union[
+        "Identity[A]",
+        "Reader[R, A]",
+        "Const[S, A]",
+        "Maybe[A]",
+        "Either[L, A]",
+        Apply[A],
+    ],
+) -> Union[
+    "Identity[B]",
+    "Reader[R, B]",
+    "Const[S, B]",
+    "Maybe[B]",
+    "Either[L, B]",
+    Apply[B],
+]:
     """Free-function form of `Apply.ap`; delegates to the method.
 
     As each new concrete Apply type is added, this gains its own
