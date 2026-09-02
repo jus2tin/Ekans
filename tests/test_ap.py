@@ -6,6 +6,7 @@ from semigroup_laws import assert_semigroup_law
 
 from ekans.ap import Ap
 from ekans.extractable import Extractable
+from ekans.foldable import Foldable, toList
 from ekans.identity import Identity
 from ekans.monoid import Monoid
 from ekans.semigroup import Semigroup
@@ -134,3 +135,19 @@ def test_mempty_extract_equals_the_value_types_own_mempty() -> None:
     # Monoid/Extractable, non-nominal form -- per the spec's
     # Cross-Product audit section.
     assert Ap.mempty(_MonoidBox).extract() == _MonoidBox.mempty()
+
+
+def test_is_a_foldable() -> None:
+    assert isinstance(_make_ap(1), Foldable)
+
+
+def test_iterates_the_value_wrapped_by_the_inner_identity() -> None:
+    ap = Ap(value=Identity(value=_Box(value=5)))
+    assert toList(ap) == [_Box(value=5)]
+
+
+def test_extractable_foldable_coherence() -> None:
+    # toList(xs) == [extract(xs)] -- see docs/specs/foldable.md's
+    # retrofit Cross-Product audit.
+    ap = _make_ap(5)
+    assert toList(ap) == [ap.extract()]

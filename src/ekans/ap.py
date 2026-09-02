@@ -7,7 +7,7 @@ hard mypy error).
 """
 
 from dataclasses import dataclass
-from typing import Generic, Type, TypeVar
+from typing import Generic, Iterator, Type, TypeVar
 
 from ekans.applicative import liftA2
 from ekans.extractable import Extractable
@@ -82,6 +82,17 @@ class Ap(Semigroup, Extractable[S], Generic[S]):
             The fully unwrapped held value.
         """
         return self.value.extract()
+
+    def __iter__(self) -> Iterator[S]:
+        """Yield the value wrapped by the inner Identity.
+
+        Folds through `self.value` (an `Identity[S]`), not `self.value`
+        itself, matching `extract`'s own full-unwrap behavior.
+
+        Returns:
+            An iterator yielding exactly `self.value.value`.
+        """
+        yield self.value.value
 
     @classmethod
     def mempty(cls, value_type: Type[T]) -> "Ap[T]":
