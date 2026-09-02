@@ -394,7 +394,7 @@ Spec: [`docs/specs/monad.md`](docs/specs/monad.md)
 
 ### T-050: Monad ABC
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-015 (Applicative ABC), T-046 (Bind ABC)
 
 Add `src/ekans/monad.py` with `Monad[A_co](Applicative[A_co], Bind[A_co], Generic[A_co])` per the spec: pure composition, no new abstract methods. Verified in Phase 1 that the MRO resolves cleanly despite `Applicative` and `Bind` both independently reaching `Apply`, and that no `fmap`/`ap`/`bind` re-declaration is needed (unlike `Applicative`'s own re-declaration from `Apply`). Includes the real `docs/HOWTO.md` `Monad` section.
