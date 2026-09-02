@@ -137,7 +137,7 @@ Amended during T-016: `Applicative` also re-declares `fmap` and `ap`, narrowing 
 
 ### T-017: Identity implements Applicative
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-015, T-016
 
 Retrofit `Identity[A]`'s base classes to `Applicative[A]` only, dropping the now-redundant explicit `Pointed[A]`/`Apply[A]` (MRO conflict otherwise — same lesson as T-006/T-014). No new methods. Law test via the T-016 helper. Update `docs/HOWTO.md`'s `Identity` section with a short note.

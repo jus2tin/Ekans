@@ -114,6 +114,8 @@ wrapped_fn: Identity[Callable[[int], str]] = Identity(value=str)
 Identity(value=5).ap(wrapped_fn)  # Identity(value='5')
 ```
 
+Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, `point`/`ap`/`fmap` already do all the work.
+
 ## Functor: doing something to what's inside
 
 `Functor` is the first real capability in the hierarchy — everything before it (`Functional`, `Identity`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.
@@ -363,7 +365,7 @@ class Box(Applicative[A], Generic[A]):
 Box.point(5).ap(Box.point(str))  # Box(value='5')
 ```
 
-Notice the class declaration: just `Applicative[A]`, nothing else — no separate `Pointed[A]`/`Apply[A]`/`Functor[A]` in the bases. That's on purpose, not a simplification: since `Applicative` already inherits both, listing them again creates a genuinely broken class (Python can't work out a consistent method resolution order, and raises a `TypeError` at class *definition* time, not at some later call). Every concrete `Applicative` in this package follows the same rule.
+Notice the class declaration: just `Applicative[A]`, nothing else — no separate `Pointed[A]`/`Apply[A]`/`Functor[A]` in the bases. That's on purpose, not a simplification: since `Applicative` already inherits both, listing them again creates a genuinely broken class (Python can't work out a consistent method resolution order, and raises a `TypeError` at class *definition* time, not at some later call). `Box` here is a stand-in for illustration; `Identity` (see its section above) is the real, shipped `Applicative` — and, being one, needed no new methods at all, just the same base-class change.
 
 **The four laws.** These are what make `point`, `ap`, and `fmap` a single coherent system instead of three unrelated methods that happen to share a class:
 
