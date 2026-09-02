@@ -6,7 +6,7 @@ This is a single article for now. As the library grows, the sections below are w
 
 Every concept, type, and function that exists in the package gets a section here. The ones that don't exist *yet* get a stub, so you can see the whole shape of where this is headed.
 
-The article is in two parts. **Part 1** builds the abstract type-class hierarchy itself, one capability at a time, each with a small throwaway `Box` illustrating the shape. **Part 2** is a gallery of the real, shipped types — `Identity`, `Const`, `Reader`, `Maybe`, `Either`, and the rest — walking through everything each one actually implements, now that every concept it uses has already been introduced.
+The article is in three parts. **Part 1** builds the abstract type-class hierarchy itself, one capability at a time, each with a small throwaway `Box` illustrating the shape. **Part 2** is a gallery of the real, shipped types — `Identity`, `Const`, `Reader`, `Maybe`, `Either`, and the rest — walking through everything each one actually implements, now that every concept it uses has already been introduced. **Part 3** covers `Foldable`, which deliberately sits outside both: it's not part of the `Functional` hierarchy Part 1 builds, and it isn't a concrete type the way Part 2's gallery is either.
 
 ## Contents
 
@@ -36,6 +36,10 @@ The article is in two parts. **Part 1** builds the abstract type-class hierarchy
 - [Maybe: a value that might not be there](#maybe-a-value-that-might-not-be-there)
 - [Either: L or R, biased to R](#either-l-or-r-biased-to-r)
 - [Tuple2: a pair, Const's closest sibling](#tuple2-a-pair-consts-closest-sibling)
+
+**Part 3 — outside both hierarchies**
+
+- [Foldable: anything you can already iterate](#foldable-anything-you-can-already-iterate)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -1040,6 +1044,97 @@ mempty = (mempty, mempty)
 
 This is the first conditional instance in this codebase needing *two* independent bounds at once (`A: Semigroup` *and* `B: Semigroup`) rather than one — verified directly that both are enforced independently: a pair where only one side is a genuine `Monoid` (the other merely a `Semigroup`) is a real `mypy --strict` rejection when building `mempty`, not a silent pass.
 
+## Foldable: anything you can already iterate
+
+Every type class so far has been about a specific shape of box, built by explicitly inheriting from an abstract class. `Foldable` is different in kind, not just in content: it's not a `Functional` subclass at all, and nothing needs to opt in to it on purpose.
+
+```python
+from ekans.foldable import Foldable
+
+isinstance([1, 2, 3], Foldable)          # True
+isinstance((1, 2, 3), Foldable)          # True
+isinstance((x for x in range(3)), Foldable)  # True
+isinstance(5, Foldable)                  # False
+```
+
+`Foldable` is a `typing.Protocol` requiring exactly one thing: `__iter__`. That's a deliberate departure from this project's own "ABC, not Protocol" rule for everything else in the hierarchy — and the reason is specific, not a general loosening. `ap`, `point`, `fmap`, and the rest aren't things Python types already have by accident, so nominal inheritance (declare it, mean it) costs nothing. `__iter__` is the opposite: `list`, `tuple`, `dict`, every generator, and any custom type with its own `__iter__` for reasons that have nothing to do with `Foldable` *already* has the one thing this protocol asks for. Structural typing is what lets all of them satisfy `Foldable` automatically, with zero code changes, which is exactly the point.
+
+None of Ekans's own shipped types (`Identity`, `Const`, `Reader`, `Maybe`, `Either`, `Tuple2`, and friends) satisfy `Foldable` — none of them are iterable, and that's expected rather than a gap. `Foldable` exists to bring already-iterable things (Python's own builtins, mostly) into this library's vocabulary, not to give Ekans's own single/double-value wrapper types a new capability they were never shaped for.
+
+**The core folds.** Everything else in this section is built on `foldr`, `foldl`, or the `Monoid`/`Semigroup`-based combinators below:
+
+```python
+from ekans.foldable import foldr, foldl
+
+foldr(lambda a, b: a - b, 0, [1, 2, 3])  # 2  -- 1 - (2 - (3 - 0))
+foldl(lambda a, b: a - b, 0, [1, 2, 3])  # -6 -- ((0 - 1) - 2) - 3
+```
+
+**A real bug, caught and corrected before it shipped, worth knowing about.** A right fold with a *strict* combining function — the only kind a plain Python function can be — is inherently right-associated: the outermost step can't produce a value until everything inside it has, so it needs real auxiliary state no matter how it's written. The first implementation tried here handled that by chaining closures together (build up `x1`'s step wrapping `x2`'s step wrapping `x3`'s step..., then call the outermost one) — and it's wrong. Calling that outermost closure still recurses through a genuine Python stack frame for every single element, the exact same cost as writing the recursive version directly. Checked directly: with the recursion limit deliberately lowered, folding a 100,000-element list this way raises a real `RecursionError`. The fix has nothing to do with closures at all — a plain accumulator loop over `reversed(list(xs))` keeps that same `O(n)` auxiliary state in an ordinary Python list instead of on the call stack, and needs zero recursion to do it. Verified clean at 100,000 elements, recursion limit still artificially tiny. `foldl` never had this problem in the first place — a left fold's accumulator loop already runs forward with nothing to reverse, trivially stack-safe on its own.
+
+**`foldMap`/`fold` need an explicit `Type[M]` argument, the same reason `Sum.mempty()` did.** `foldMap` maps every element into a `Monoid` and combines the results; `fold` is the same thing when the elements are already that `Monoid`:
+
+```python
+from dataclasses import dataclass
+from ekans.foldable import fold, foldMap
+from ekans.monoid import Monoid
+
+@dataclass(frozen=True, eq=False)
+class MonoidBox(Monoid):
+    value: int
+    def mappend(self, other: "MonoidBox") -> "MonoidBox":
+        return MonoidBox(value=self.value + other.value)
+    @classmethod
+    def mempty(cls) -> "MonoidBox":
+        return MonoidBox(value=0)
+
+foldMap(MonoidBox, lambda a: MonoidBox(value=a), [1, 2, 3])           # MonoidBox(value=6)
+fold(MonoidBox, [MonoidBox(value=1), MonoidBox(value=2)])              # MonoidBox(value=3)
+```
+
+An empty `Foldable` still needs a real value to hand back (`mempty()`), and there's nothing in a hypothetical empty call to infer *which* `Monoid` from — the identical erasure story `Sum.mempty(int)` already tells (see `Sum`'s section above), solved the identical way: ask for the type explicitly rather than guess.
+
+**`foldr1`/`foldl1`/`fold1` drop the seed entirely**, using the first or last element instead — and, matching Haskell's own partiality here (and Python's own `max()`/`min()` on an empty sequence), raise on an empty `Foldable` rather than silently returning something:
+
+```python
+from ekans.foldable import foldr1, foldl1
+
+foldr1(lambda a, b: a - b, [1, 2, 3])  # 2
+foldl1(lambda a, b: a - b, [1, 2, 3])  # -4
+foldr1(lambda a, b: a - b, [])
+# Traceback (most recent call last):
+#   ...
+# ValueError: foldr1: empty Foldable
+```
+
+`fold1` is the `Semigroup`-only cousin of `fold` — no `Type[M]` argument needed at all, since a non-empty `Foldable`'s own first element already *is* a real runtime value to start combining from, and an empty one just raises the same way `foldr1`/`foldl1` do.
+
+**`FoldableABC`: an escape hatch for the two operations actually worth optimizing.** A plain `list` will never inherit anything — its `Foldable`-ness is entirely structural, and every function above still works on it through the generic `__iter__`-driven default. But a type that genuinely has a faster way to fold, or an O(1) way to answer "how many," shouldn't be stuck re-deriving that from scratch every time:
+
+```python
+from typing import Callable, Iterator, TypeVar
+from ekans.foldable import FoldableABC, foldr
+
+A = TypeVar("A")
+
+class FastList(FoldableABC[int]):
+    def __init__(self, items: list[int]) -> None:
+        self._items = items
+
+    def __iter__(self) -> Iterator[int]:
+        return iter(self._items)
+
+    def foldr(self, f: Callable[[int, A], A], initial: A) -> A:
+        result = initial
+        for item in reversed(self._items):
+            result = f(item, result)
+        return result
+
+foldr(lambda a, b: a + b, 0, FastList([1, 2, 3]))  # 6 -- uses FastList's own foldr, verified
+```
+
+Scoped deliberately to just two override points — `foldr` and `length` — not one per derived function. Everything else in this module is defined in terms of `foldr` (or `__iter__` directly), so a type overriding `foldr` gets the benefit everywhere that builds on it, automatically. `length`/`null` get their own hook for the same reason CLAUDE.md's own design notes called out before any of this was built: a type that already tracks its own size shouldn't have to walk itself just to answer a question it already knows.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
@@ -1054,5 +1149,4 @@ These don't exist in the package yet. Each one gets its own full section, comple
 - **Star** — a `Profunctor` built by wrapping up a function that returns a *boxed* value (`a -> f b`) instead of a plain one, so `dimap` can reach in through the box too. This is the interesting one: when the box is a `Monad`, composing two `Star`s is exactly Kleisli composition — chaining effectful functions end to end. Give `Star` its own `Category` instance on top of that composition and you get Haskell's `Kleisli` arrow — the `Arrow` built for monadic effects. (Not every `Arrow` looks like this — plain functions are an `Arrow` too, no box in sight — but the Kleisli case, the one people actually reach for, is precisely `Star` plus `Category`.) It comes essentially free once `Category`, `Strong`, and `Monad` already exist, rather than needing its own bespoke machinery.
 - **Proxy[A]** — a box that was never holding anything to begin with; `A` exists only on the label, never at runtime. Named after Haskell's `Data.Proxy` — not to be confused with the `profunctors` package's *different* `Forget` type, which actually does hold a value and might show up here later under its own name. `Const` above is its cousin with a real value inside.
 - **Bifunctor** — like `Functor`, but with *two* type parameters to map over instead of one: `bimap :: (a -> a') -> (b -> b') -> p a b -> p a' b'`, plus `first`/`second` for touching just one side. Where `Const[A, B]`'s `Functor` instance is deliberately blind to `A`, a `Bifunctor` instance would let you reach both — the natural next step for `Const`, `Either`, and `Tuple2` alike, once it lands.
-- **Foldable** — not a `Functional` subclass; a `typing.Protocol` requiring only `__iter__`, so any existing iterable (a `list`, a generator, a custom type with its own `__iter__`) satisfies it automatically. Folds, `toList`, length, and friends all build on that one method alone, with a stack-safe trampoline hiding underneath so a naive recursive fold doesn't blow Python's recursion limit on a large input.
 - **Traversable** — needs both `Functor` and `Foldable` together: `traverse :: (a -> f b) -> t a -> f (t b)` runs an effectful function over every element of a structure and flips the two containers inside out, collecting the effects as it goes. It's the reason Haskell's `mapM`/`sequence` need no special-casing of their own — they're just `traverse` specialized.
