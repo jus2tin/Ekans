@@ -367,7 +367,7 @@ Add `src/ekans/bind.py` with `Bind[A_co](Apply[A_co], Generic[A_co])` per the sp
 
 ### T-047: Bind associativity law-checking helper
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-046
 
 `tests/bind_laws.py`: `assert_bind_law(make, values, equal=None)` -- associativity, generated functions via `st.functions(like=...)` since `f`/`g` return wrapped values (closer to `apply_laws.py`'s shape than `semigroup_laws.py`'s). T-048/T-049 are its callers.
