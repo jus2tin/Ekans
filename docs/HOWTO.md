@@ -21,6 +21,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Product: multiplication, boxed](#product-multiplication-boxed)
 - [All: everyone has to agree](#all-everyone-has-to-agree)
 - [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
+- [Extractable: getting a value out of a box](#extractable-getting-a-value-out-of-a-box)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -576,6 +577,42 @@ Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.va
 
 **The honest gap:** Haskell's `Ap` is `newtype Ap f a = Ap { getAp :: f a }`, generic over *any* `Applicative f` — you could build `Ap Maybe Int`, `Ap [] Int`, `Ap IO Int`, whatever. Ekans' `Ap[S]` can't do that: it's fixed to wrap `Identity[S]` specifically, not generic over the box itself. This isn't a shortcut taken for convenience — it's a real wall. Python's type system has no *higher-kinded types*: a `TypeVar` can only ever stand for a concrete type, never for a type constructor waiting to be filled in. Try to write `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar`, and mypy refuses outright (`Type variable "F" used with arguments`) — there's no way to say "some box, whichever one, applied to `A`" the way Haskell's kind system lets you. So Ekans' `Ap` picks one box (`Identity`, the simplest one available) and stops there, rather than pretending to a generality the type system genuinely can't check.
 
+## Extractable: getting a value out of a box
+
+`Pointed` (above) is "give me a box of this shape, holding this value" — a value goes in, a box comes out. `Extractable` runs that exact arrow backwards: a box goes in, its value comes out.
+
+```python
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+from ekans.extractable import Extractable
+
+A = TypeVar("A")
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Extractable[A], Generic[A]):
+    value: A
+
+    def extract(self) -> A:
+        return self.value
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and bool(self.value == other.value)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+Box(value=42).extract()  # 42
+```
+
+`Box` here is an illustrative stand-in, the same way it was for `Functor`/`Pointed` above; `Identity`, `Sum`, `Product`, `All`, `Const`, and `Ap` are the real, shipped examples — every type in the package that genuinely holds exactly one value now has `extract` (`Reader`/`Star` don't, since they wrap a function rather than holding a value directly, and `Proxy` doesn't, since it holds nothing at runtime at all).
+
+Like `point`, `extract` needed no design detour to get precise: it's an ordinary instance method narrowing only its *return* type per concrete class, which mypy already tracks exactly — no `# type: ignore` anywhere, on any of the six instances.
+
+`Pointed`/`Extractable` are also the first deliberate step toward `Comonad` (a `Functor` that can `extract` and `extend`) — the mirror image of how `Monad` got built up here from `Pointed`/`Functor`/`Apply`/`Bind` piece by piece, just run in the opposite direction. `Comonad` itself, and the `extend`/`duplicate` half of it, aren't built yet — see "Coming soon" below.
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
@@ -583,6 +620,8 @@ These don't exist in the package yet. Each one gets its own full section, comple
 - **Bind** — chaining box-producing functions together without ending up with a box of boxes (`>>=`).
 - **Monad** — `Applicative` and `Bind`, evolved.
 - **Monoid** — a `Semigroup` that also knows how to make something out of *nothing* (an identity element).
+- **Extend** — the dual of `Bind`: instead of chaining box-producing functions together, it lets a function that consumes a *whole box* (`w a -> b`) be applied across a structure without collapsing it (`extend`/`duplicate`).
+- **Comonad** — `Functor`, `Extractable`, and `Extend`, together — the mirror image of `Monad`.
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.
 - **Profunctor** — a box with an in-door and an out-door, each independently adaptable.
 - **Strong** — a `Profunctor` that can politely ignore half a tuple while it works on the other half.
