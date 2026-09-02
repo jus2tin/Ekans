@@ -4,12 +4,14 @@ from typing import Callable
 import pytest
 from applicative_laws import assert_applicative_law
 from apply_laws import assert_apply_law
+from bind_laws import assert_bind_law
 from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
 from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
+from ekans.bind import Bind, bind
 from ekans.functor import Functor, fmap
 from ekans.monoid import Monoid
 from ekans.reader import Reader, const
@@ -201,3 +203,35 @@ def test_mempty_is_the_right_identity() -> None:
     a: Reader[int, _MonoidBox] = Reader.mempty(_MonoidBox)
     lhs = mappend(x, a)
     assert all(lhs.run(env) == x.run(env) for env in range(-5, 5))
+
+
+def test_bind_threads_the_same_environment_into_both_sides() -> None:
+    x: Reader[int, int] = Reader(run=lambda r: r)
+    threaded = x.bind(lambda a: Reader(run=lambda r: a + r))
+    assert threaded.run(3) == 6
+    assert threaded.run(4) == 8
+
+
+def test_free_bind_delegates_to_the_method() -> None:
+    x: Reader[int, int] = Reader(run=lambda r: r)
+    assert bind(lambda a: Reader(run=lambda r: a + r), x).run(3) == 6
+
+
+def test_is_a_bind() -> None:
+    assert isinstance(Reader(run=lambda r: r), Bind)
+
+
+def _compare_bind_readers(a: Bind[int], b: Bind[int]) -> bool:
+    """Typed comparator for assert_bind_law's `equal` parameter.
+
+    Can't reuse `_compare_readers` -- it's typed `Functor[int]`
+    specifically, and `Bind[int]` isn't a `Functor[int]` as far as
+    mypy's concerned here (same reasoning as the mappend/liftA2 tests
+    above).
+    """
+    assert isinstance(a, Reader) and isinstance(b, Reader)
+    return all(a.run(env) == b.run(env) for env in range(-5, 5))
+
+
+def test_satisfies_the_bind_law() -> None:
+    assert_bind_law(_make_reader, st.integers(), equal=_compare_bind_readers)

@@ -316,6 +316,8 @@ Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that se
 
 `Reader.mempty(SomeMonoidType)` builds the identity element the same way `Reader.point` builds any other value — ignoring the environment entirely: `Reader.mempty(Box).run(anything)` always returns `Box.mempty()`, no matter what `anything` is.
 
+`Reader` is also `Bind` (see that section below): `x.bind(f)` threads the *same* environment into both `self` and whatever `Reader` `f` produces, same threading story as `ap` — `x.bind(f).run(r)` calls `x.run(r)` first, feeds that result to `f`, then runs the resulting `Reader` against that same `r` again.
+
 ## Apply: when the function is also in a box
 
 `fmap` covers a lot of ground, but it has one blind spot: the function you're mapping with always has to be a plain, ordinary function sitting outside any box. What happens when the function itself is *also* stuck inside a box? That's `Apply`.

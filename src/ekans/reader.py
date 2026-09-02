@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
 
 from ekans.applicative import Applicative
+from ekans.bind import Bind
 
 if TYPE_CHECKING:
     from ekans.monoid import Monoid
@@ -37,7 +38,7 @@ def const(value: A) -> Callable[[C], A]:
 
 
 @dataclass(frozen=True, eq=False)
-class Reader(Applicative[A], Generic[R, A]):
+class Reader(Applicative[A], Bind[A], Generic[R, A]):
     """The function arrow `(-> r)`: wraps a function from an environment to a result.
 
     Deliberately has no `__eq__`/`__hash__` override, unlike Identity/
@@ -123,3 +124,19 @@ class Reader(Applicative[A], Generic[R, A]):
             `value_type.mempty()`.
         """
         return Reader(run=const(value_type.mempty()))
+
+    def bind(  # type: ignore[override]
+        self, f: Callable[[A], "Reader[R, B]"]
+    ) -> "Reader[R, B]":
+        """Apply `f`, threading the same environment through both sides.
+
+        Args:
+            f: A function from the wrapped result to a new Reader of
+                the same environment.
+
+        Returns:
+            A new Reader whose `run` calls `self.run`, feeds the
+            result to `f`, then runs the resulting Reader against the
+            same environment.
+        """
+        return Reader(run=lambda r: f(self.run(r)).run(r))

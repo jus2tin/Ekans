@@ -7,10 +7,12 @@ from ekans.apply import Apply
 
 if TYPE_CHECKING:
     from ekans.identity import Identity
+    from ekans.reader import Reader
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
 B = TypeVar("B")
+R = TypeVar("R")
 
 
 class Bind(Apply[A_co], Generic[A_co]):
@@ -42,6 +44,8 @@ class Bind(Apply[A_co], Generic[A_co]):
 
 @overload
 def bind(f: Callable[[A], "Identity[B]"], x: "Identity[A]") -> "Identity[B]": ...
+@overload
+def bind(f: Callable[[A], "Reader[R, B]"], x: "Reader[R, A]") -> "Reader[R, B]": ...
 @overload
 def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]": ...
 def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]":  # noqa: E302

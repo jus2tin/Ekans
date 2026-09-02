@@ -383,7 +383,7 @@ Retrofit `Identity[A]` to also inherit `Bind[A]` and implement `bind` (returns `
 
 ### T-049: Reader implements Bind
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-046, T-047
 
 Retrofit `Reader[R, A]` to also inherit `Bind[A]` and implement `bind` (`Reader(run=lambda r: f(self.run(r)).run(r))`, threading the environment through both `self` and the result of `f`). Add its overload to the free `bind` function. Law test via T-047's helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s other law tests). Update `docs/HOWTO.md`'s `Reader` section.
