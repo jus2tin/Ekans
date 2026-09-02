@@ -79,3 +79,13 @@ def test_extract_fully_unwraps_to_the_held_value() -> None:
 
 def test_is_extractable() -> None:
     assert isinstance(_make_ap(1), Extractable)
+
+
+def test_mappend_extract_homomorphism() -> None:
+    # Semigroup/Extractable homomorphism, nominal form: x.mappend(y)
+    # .extract() == x.extract().mappend(y.extract()) -- unlike
+    # Identity/Const, Ap's mappend is a real method, not a free
+    # function, but the same law connects it to extract.
+    x = _make_ap(2)
+    y = _make_ap(3)
+    assert x.mappend(y).extract() == x.extract().mappend(y.extract())

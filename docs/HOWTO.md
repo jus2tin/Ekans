@@ -627,6 +627,8 @@ Like `point`, `extract` needed no design detour to get precise: it's an ordinary
 
 `Pointed`/`Extractable` are also the first deliberate step toward `Comonad` (a `Functor` that can `extract` and `extend`) — the mirror image of how `Monad` got built up here from `Pointed`/`Functor`/`Apply`/`Bind` piece by piece, just run in the opposite direction. `Comonad` itself, and the `extend`/`duplicate` half of it, aren't built yet — see "Coming soon" below.
 
+`extract` connects to more than just `point`, too — `extract(w.fmap(f)) == f(w.extract())` and `x.ap(f).extract() == f.extract()(x.extract())` both hold for `Identity`, and `mappend(x, y).extract() == x.extract().mappend(y.extract())` holds everywhere a type is both `Semigroup` and `Extractable`. See `docs/specs/invariance-audit.md` for the full cross-class inventory, including the pairs that were checked and genuinely don't have a law (like `Const`'s `Functor`/`Extractable` naturality — `fmap` and `extract` touch different type parameters there, so the law isn't just false, it isn't even well-typed).
+
 ## Coming soon
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.

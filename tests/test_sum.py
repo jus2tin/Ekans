@@ -1,4 +1,5 @@
 import pytest
+from hypothesis import given
 from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
@@ -57,3 +58,13 @@ def test_extract_returns_the_wrapped_value() -> None:
 
 def test_is_extractable() -> None:
     assert isinstance(Sum(value=5), Extractable)
+
+
+@given(st.integers(), st.integers())
+def test_mappend_extract_distributes_over_addition(a: int, b: int) -> None:
+    # Semigroup/Extractable homomorphism, operator form: Sum's held
+    # type is bound by SupportsAdd, not Semigroup, so there's no
+    # `.mappend()` on the extracted value to compare against -- the
+    # law is stated against `+` directly, the operation mappend
+    # itself delegates to. See docs/specs/invariance-audit.md.
+    assert Sum(value=a).mappend(Sum(value=b)).extract() == a + b

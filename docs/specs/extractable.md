@@ -77,3 +77,5 @@ Verified directly: a concrete type inheriting both an Endofunctor-branch class (
 ## Open questions / risks
 
 - None outstanding — every design decision here (ABC shape, no-override-needed claim, MRO composition, `Const`'s two-type-parameter case, `Ap`'s full-unwrap behavior) was verified directly against `mypy --strict` before being written down.
+
+**Retroactive cross-class audit:** see [`docs/specs/invariance-audit.md`](invariance-audit.md) for the full Compositional Invariance Matrix audit of `Extractable`'s interaction with every other type class in the project (`Functor`, `Pointed`, `Apply`, `Semigroup`) — including tested laws and documented non-laws (e.g. `Const` is structurally excluded from Functor/Extractable naturality).
