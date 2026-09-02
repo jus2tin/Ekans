@@ -387,3 +387,35 @@ Retrofit `Identity[A]` to also inherit `Bind[A]` and implement `bind` (returns `
 **Depends on:** T-046, T-047
 
 Retrofit `Reader[R, A]` to also inherit `Bind[A]` and implement `bind` (`Reader(run=lambda r: f(self.run(r)).run(r))`, threading the environment through both `self` and the result of `f`). Add its overload to the free `bind` function. Law test via T-047's helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s other law tests). Update `docs/HOWTO.md`'s `Reader` section.
+
+## Monad
+
+Spec: [`docs/specs/monad.md`](docs/specs/monad.md)
+
+### T-050: Monad ABC
+
+**Status:** Open
+**Depends on:** T-015 (Applicative ABC), T-046 (Bind ABC)
+
+Add `src/ekans/monad.py` with `Monad[A_co](Applicative[A_co], Bind[A_co], Generic[A_co])` per the spec: pure composition, no new abstract methods. Verified in Phase 1 that the MRO resolves cleanly despite `Applicative` and `Bind` both independently reaching `Apply`, and that no `fmap`/`ap`/`bind` re-declaration is needed (unlike `Applicative`'s own re-declaration from `Apply`). Includes the real `docs/HOWTO.md` `Monad` section.
+
+### T-051: Monad law-checking helper
+
+**Status:** Open
+**Depends on:** T-050
+
+`tests/monad_laws.py`: `assert_monad_law(point, values, equal=None)` -- left identity (`point(a).bind(f) == f(a)`) and right identity (`m.bind(point) == m`), expressed via `point` alone, same shape as `applicative_laws.py`. Associativity is not retested (already covered by `Bind`'s own law). T-052/T-053 are its callers.
+
+### T-052: Identity implements Monad
+
+**Status:** Open
+**Depends on:** T-050, T-051
+
+Retrofit `Identity[A]`'s base classes to `Monad[A]` + `Extractable[A]` only, dropping the now-redundant explicit `Applicative[A]`/`Bind[A]` (MRO conflict otherwise -- same lesson as T-017/T-019). No new methods -- everything already implemented. Law test via T-051's helper. Update `docs/HOWTO.md`'s `Identity` section with a short note.
+
+### T-053: Reader implements Monad
+
+**Status:** Open
+**Depends on:** T-050, T-051
+
+Retrofit `Reader[R, A]`'s base classes to `Monad[A]` only, dropping the now-redundant explicit `Applicative[A]`/`Bind[A]`. No new methods. Law test via T-051's helper with the environment-sampling `equal` comparator (same pattern as `Reader`'s other law tests). Update `docs/HOWTO.md`'s `Reader` section with a short note.
