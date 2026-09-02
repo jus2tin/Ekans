@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Generic, Protocol, TypeVar
 
+from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
 
 _AddT = TypeVar("_AddT", bound="SupportsAdd")
@@ -20,7 +21,7 @@ A = TypeVar("A", bound=SupportsAdd)
 
 
 @dataclass(frozen=True, eq=False)
-class Sum(Semigroup, Generic[A]):
+class Sum(Semigroup, Extractable[A], Generic[A]):
     """Wraps a value, combining two via `+`.
 
     Attributes:
@@ -63,3 +64,11 @@ class Sum(Semigroup, Generic[A]):
             The hash of the wrapped value.
         """
         return hash(self.value)
+
+    def extract(self) -> A:
+        """Return the wrapped value.
+
+        Returns:
+            The wrapped value.
+        """
+        return self.value

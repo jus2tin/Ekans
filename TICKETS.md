@@ -252,7 +252,7 @@ Retrofit `Identity[A]` to also inherit `Extractable[A]` and implement `extract` 
 
 ### T-032: Sum implements Extractable
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-030
 
 Retrofit `Sum[A]` to inherit `Extractable[A]`, `extract` returns `self.value`. Example test. Update `docs/HOWTO.md`'s `Sum` section with a short `extract` addition.

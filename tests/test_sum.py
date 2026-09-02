@@ -2,6 +2,7 @@ import pytest
 from hypothesis import strategies as st
 from semigroup_laws import assert_semigroup_law
 
+from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
 from ekans.sum import Sum
 
@@ -48,3 +49,11 @@ def test_is_a_semigroup() -> None:
 
 def test_satisfies_the_semigroup_law() -> None:
     assert_semigroup_law(Sum, st.integers())
+
+
+def test_extract_returns_the_wrapped_value() -> None:
+    assert Sum(value=5).extract() == 5
+
+
+def test_is_extractable() -> None:
+    assert isinstance(Sum(value=5), Extractable)

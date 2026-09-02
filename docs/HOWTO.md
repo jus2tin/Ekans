@@ -518,6 +518,8 @@ Sum(value=Vector(x=1, y=2)).mappend(Sum(value=Vector(x=3, y=4)))
 
 That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a small `Protocol` requiring a self-typed `__add__`, so *any* type with an `__add__` that takes and returns its own type works — no need to explicitly subclass anything. Try it with a type that has no `__add__` at all and mypy rejects the `Sum(value=...)` call outright, before you ever get to `mappend`.
 
+`Sum` is also `Extractable` (see that section below): `Sum(value=6).extract()` returns the plain `6` back out, no `Sum` wrapper left — the shape that makes `sum = lambda foldable: foldMap(Sum, foldable).extract()` work, once `foldMap` exists.
+
 ## Product: multiplication, boxed
 
 `Product[M]` is `Sum`'s sibling: same shape, different operation. `mappend` is `*` instead of `+`, bounded by its own small `SupportsMul` `Protocol` requiring a self-typed `__mul__`, structurally rather than by inheritance — same reasoning as `Sum`'s `SupportsAdd` above.
