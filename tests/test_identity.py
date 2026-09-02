@@ -4,12 +4,14 @@ from typing import Callable
 import pytest
 from applicative_laws import assert_applicative_law
 from apply_laws import assert_apply_law
+from bind_laws import assert_bind_law
 from functor_laws import assert_functor_laws
 from hypothesis import given
 from hypothesis import strategies as st
 
 from ekans.applicative import Applicative, liftA2
 from ekans.apply import ap
+from ekans.bind import Bind, bind
 from ekans.extractable import Extractable
 from ekans.functor import fmap
 from ekans.identity import Identity
@@ -228,3 +230,33 @@ def test_mempty_extract_equals_the_value_types_own_mempty() -> None:
     # Monoid/Extractable, non-nominal form -- per the spec's
     # Cross-Product audit section.
     assert Identity.mempty(_MonoidBox).extract() == _MonoidBox.mempty()
+
+
+def test_bind_applies_f_and_flattens() -> None:
+    assert Identity(value=5).bind(lambda a: Identity(value=str(a))) == Identity(
+        value="5"
+    )
+
+
+def test_free_bind_delegates_to_the_method() -> None:
+    assert bind(lambda a: Identity(value=str(a)), Identity(value=5)) == Identity(
+        value="5"
+    )
+
+
+def test_is_a_bind() -> None:
+    assert isinstance(Identity(value=5), Bind)
+
+
+def test_satisfies_the_bind_law() -> None:
+    assert_bind_law(Identity, st.integers())
+
+
+def test_bind_extract_law() -> None:
+    # Bind/Extractable, per the spec's Cross-Product audit section:
+    # m.bind(f).extract() == f(m.extract()).extract()
+    def f(a: int) -> Identity[str]:
+        return Identity(value=str(a))
+
+    m = Identity(value=5)
+    assert m.bind(f).extract() == f(m.extract()).extract()

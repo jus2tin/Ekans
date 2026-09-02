@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
 
 from ekans.applicative import Applicative
+from ekans.bind import Bind
 from ekans.extractable import Extractable
 
 if TYPE_CHECKING:
@@ -15,7 +16,7 @@ S = TypeVar("S", bound="Monoid")
 
 
 @dataclass(frozen=True, eq=False)
-class Identity(Applicative[A], Extractable[A], Generic[A]):
+class Identity(Applicative[A], Bind[A], Extractable[A], Generic[A]):
     """Wraps a single value without adding any structure.
 
     Attributes:
@@ -123,3 +124,16 @@ class Identity(Applicative[A], Extractable[A], Generic[A]):
             A new Identity wrapping `value_type.mempty()`.
         """
         return Identity(value=value_type.mempty())
+
+    def bind(  # type: ignore[override]
+        self, f: Callable[[A], "Identity[B]"]
+    ) -> "Identity[B]":
+        """Apply `f` to the wrapped value, flattening the result.
+
+        Args:
+            f: A function from the wrapped value to a new Identity.
+
+        Returns:
+            The result of `f(self.value)`.
+        """
+        return f(self.value)

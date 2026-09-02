@@ -374,10 +374,12 @@ Add `src/ekans/bind.py` with `Bind[A_co](Apply[A_co], Generic[A_co])` per the sp
 
 ### T-048: Identity implements Bind
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-046, T-047
 
 Retrofit `Identity[A]` to also inherit `Bind[A]` and implement `bind` (returns `f(self.value)`). Add its overload to the free `bind` function. Law test via T-047's helper, plus a concrete example test. Cross-Product audit test: `m.bind(f).extract() == f(m.extract()).extract()` (Bind/Extractable). Update `docs/HOWTO.md`'s `Identity` section.
+
+**Amended during T-048:** found and documented a real precision gap in the free `bind` function -- `bind(f, x)` silently degrades to `Any` when `f` is a bare, unannotated lambda (mypy can't infer the lambda's parameter type from `x`, which comes second positionally). The method form (`x.bind(f)`) doesn't have this problem. Not a bug in `Identity`'s own instance -- documented as a known limitation of the free function's argument order in the spec's Design section correction note.
 
 ### T-049: Reader implements Bind
 

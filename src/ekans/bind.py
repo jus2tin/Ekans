@@ -1,9 +1,12 @@
 """Bind: chaining box-producing functions together."""
 
 from abc import abstractmethod
-from typing import Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar, overload
 
 from ekans.apply import Apply
+
+if TYPE_CHECKING:
+    from ekans.identity import Identity
 
 A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
@@ -37,7 +40,11 @@ class Bind(Apply[A_co], Generic[A_co]):
         raise NotImplementedError
 
 
-def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]":
+@overload
+def bind(f: Callable[[A], "Identity[B]"], x: "Identity[A]") -> "Identity[B]": ...
+@overload
+def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]": ...
+def bind(f: Callable[[A], "Bind[B]"], x: "Bind[A]") -> "Bind[B]":  # noqa: E302
     """Free-function form of `Bind.bind`; delegates to the method.
 
     As each new concrete Bind type is added, this gains its own

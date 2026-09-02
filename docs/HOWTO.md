@@ -722,6 +722,8 @@ bind(lambda a: Box(value=str(a)), Box(value=5))  # Box(value='5') -- free-functi
 
 Compare that to `fmap`: `Box(value=5).fmap(lambda a: Box(value=str(a)))` would give you `Box(value=Box(value='5'))` — a box holding a box, since `fmap` has no idea the function it was handed already produces one. `bind` is exactly `fmap` plus automatically un-nesting the result. This is Haskell's `>>=`, spelled as a method (`x.bind(f)`) and a free function (`bind(f, x)`, action-first, matching this project's `fmap`/`ap` convention rather than `>>=`'s own value-first order).
 
+**A real precision gap, worth knowing about.** Pass the free function a bare, unannotated lambda the way the example above does, and — verified directly — mypy silently infers the whole call as `Any`, not even the loose `Bind[...]`. The free function's `f`-first argument order means mypy has to make sense of the lambda before it's resolved `x`'s type well enough to pick the right overload; without an explicit parameter type on the lambda, that inference just gives up quietly instead of erroring. The method form doesn't have this problem — `x.bind(lambda a: Box(value=str(a)))` infers precisely, since `self` already anchors the type before the lambda is ever looked at. When precision matters (not just runtime correctness), prefer the method form, or give the free function a properly-typed `def` instead of a bare lambda.
+
 **The one law: associativity.** Chaining two binds one at a time gives the same answer as threading the second function through the first's result:
 
 ```
