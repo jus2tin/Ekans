@@ -6,25 +6,32 @@ This is a single article for now. As the library grows, the sections below are w
 
 Every concept, type, and function that exists in the package gets a section here. The ones that don't exist *yet* get a stub, so you can see the whole shape of where this is headed.
 
+The article is in two parts. **Part 1** builds the abstract type-class hierarchy itself, one capability at a time, each with a small throwaway `Box` illustrating the shape. **Part 2** is a gallery of the real, shipped types — `Identity`, `Const`, `Reader`, `Maybe`, `Either`, and the rest — walking through everything each one actually implements, now that every concept it uses has already been introduced.
+
 ## Contents
 
+**Part 1 — the abstract hierarchy**
+
 - [Functional: the box with a broken lid](#functional-the-box-with-a-broken-lid)
-- [Identity: the box that changes nothing](#identity-the-box-that-changes-nothing)
 - [Functor: doing something to what's inside](#functor-doing-something-to-whats-inside)
-- [Const: the box that refuses to look](#const-the-box-that-refuses-to-look)
 - [Pointed: getting a value into a box](#pointed-getting-a-value-into-a-box)
-- [Reader: a box that's actually a function](#reader-a-box-thats-actually-a-function)
 - [Apply: when the function is also in a box](#apply-when-the-function-is-also-in-a-box)
 - [Applicative: Pointed and Apply, together](#applicative-pointed-and-apply-together)
 - [Semigroup: squishing two into one](#semigroup-squishing-two-into-one)
-- [Sum: addition, boxed](#sum-addition-boxed)
-- [Product: multiplication, boxed](#product-multiplication-boxed)
-- [All: everyone has to agree](#all-everyone-has-to-agree)
-- [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
 - [Extractable: getting a value out of a box](#extractable-getting-a-value-out-of-a-box)
 - [Monoid: something out of nothing](#monoid-something-out-of-nothing)
 - [Bind: chaining boxes without nesting them](#bind-chaining-boxes-without-nesting-them)
 - [Monad: Applicative and Bind, evolved](#monad-applicative-and-bind-evolved)
+
+**Part 2 — the real, shipped types**
+
+- [Identity: the box that changes nothing](#identity-the-box-that-changes-nothing)
+- [Const: the box that refuses to look](#const-the-box-that-refuses-to-look)
+- [Reader: a box that's actually a function](#reader-a-box-thats-actually-a-function)
+- [Sum: addition, boxed](#sum-addition-boxed)
+- [Product: multiplication, boxed](#product-multiplication-boxed)
+- [All: everyone has to agree](#all-everyone-has-to-agree)
+- [Ap: a box, held by a box](#ap-a-box-held-by-a-box)
 - [do: turning bind chains into procedural-looking code](#do-turning-bind-chains-into-procedural-looking-code)
 - [Maybe: a value that might not be there](#maybe-a-value-that-might-not-be-there)
 - [Either: L or R, biased to R](#either-l-or-r-biased-to-r)
@@ -71,75 +78,9 @@ Here's the fun detail: notice the exception is `FrozenInstanceError`, not the `A
 
 Is that a bug? No — `FrozenInstanceError` is a subclass of `AttributeError` (check `isinstance(err, AttributeError)` — it's `True`), so as far as anyone catching exceptions is concerned, the contract holds either way. Think of it as two independent locks on the same door: the dataclass's lock is the one you'll usually feel, and `Functional`'s lock is the backup that still catches you if a concrete type is ever *not* built as a frozen dataclass (a plain class with a hand-written `__init__`, say). Belt, suspenders, immutable data.
 
-## Identity: the box that changes nothing
-
-`Identity[A]` is the simplest possible box: it holds exactly one value of type `A`, and does nothing clever with it whatsoever.
-
-```python
-from ekans.identity import Identity
-
-box = Identity(value=42)
-box.value  # 42
-
-Identity(value=1) == Identity(value=1)  # True — same value in, same box out
-
-box.value = 7
-# Traceback (most recent call last):
-#   ...
-# dataclasses.FrozenInstanceError: cannot assign to field 'value'
-```
-
-In Haskell this is `newtype Identity a = Identity a` — a type that exists almost entirely to prove a point. `Identity` is the textbook `Functor` (see that section below): calling `box.fmap(str)` turns `Identity(value=42)` into `Identity(value="42")` — same box, transformed insides, nothing else disturbed:
-
-```python
-box = Identity(value=42)
-box.fmap(str)  # Identity(value='42')
-
-from ekans.functor import fmap
-fmap(str, box)  # Identity(value='42') -- same thing, free-function form
-```
-
-That's the whole idea of a functor in one sentence: **change what's inside without changing the shape of the container.** `Identity` is the functor that changes the *least* — it's the control group: it's also `Identity`, not some illustrative stand-in, that every `Functor` law gets checked against first for exactly that reason — if a law doesn't hold for the box that does nothing, it isn't going to hold for anything fancier either.
-
-**A fun wrinkle: equality has a type, too.** In Haskell, `Identity 1 == Identity "a"` isn't a bug you catch at runtime — the compiler refuses to build it, because `Eq (Identity a)` only exists for a given `a`, and `Int` isn't `String`. Ekans gets the same guarantee, just enforced by mypy instead of `ghc`:
-
-```python
-a: Identity[int] = Identity(value=1)
-b: Identity[str] = Identity(value="not an int")
-
-a == b
-# error: Unsupported operand types for == ("Identity[int]" and "Identity[str]")  [operator]
-```
-
-That happens because `Identity.__eq__` is typed against `Identity[A]` — the same `A` as `self` — instead of the usual `object`. It costs a `# type: ignore[override]` on the definition (mypy considers narrowing `__eq__`'s parameter an LSP violation, and normally it's right to complain — here it's exactly the point). Comparing to something that isn't an `Identity` at all, like `Identity(value=1) == 5`, still type-checks fine and is just `False` at runtime, same as ordinary Python — only *same-class-different-type-parameter* comparisons get turned into an error.
-
-`Identity` is also the first type shipped in the package to actually implement `Pointed` (see that section below): `Identity.point(5)` builds `Identity(value=5)` directly, no instance required to call it on:
-
-```python
-Identity.point(5)  # Identity(value=5)
-Identity.point(5).fmap(str)  # Identity(value='5') -- point and fmap chain fine
-```
-
-`Identity` is also the first shipped `Apply` instance (see that section below): `.ap` unwraps both boxes and applies one to the other —
-
-```python
-wrapped_fn: Identity[Callable[[int], str]] = Identity(value=str)
-Identity(value=5).ap(wrapped_fn)  # Identity(value='5')
-```
-
-Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, `point`/`ap`/`fmap` already do all the work.
-
-`Identity` also has `bind` (see the `Bind` section below): `Identity(value=5).bind(lambda a: Identity(value=str(a)))` gives `Identity(value='5')` — no nesting, since `bind` un-nests automatically where `fmap` wouldn't. With both `Applicative` and `Bind` in hand, `Identity` is a `Monad` too (see that section below), for free — `class Identity(Monad[A], Extractable[A], Generic[A])` is the whole story, same zero-effort composition `Applicative` already demonstrated for `Pointed` + `Apply`.
-
-**Conditionally a `Semigroup`, but only via the free function.** `Identity[A]` can `mappend` two of itself precisely when `A` can — `Identity(value=1)` and `Identity(value=2)` combine fine if the wrapped value knows how, but there's no principled way to combine `Identity(value="a")` and `Identity(value="b")` unless `str` itself is a `Semigroup` (it isn't, here). Because that constraint lives on `A`, not on `Identity` itself, `Identity` never nominally inherits `Semigroup` — instead, `ekans.semigroup.mappend(a, b)` is a free function bounded by `TypeVar("S", bound=Semigroup)`, so calling it on `Identity[str]` is a `mypy --strict` error, not a runtime crash. See the `Semigroup` section below for the full story.
-
-`Identity` is also `Extractable` (see that section below) — `Identity(value=5).extract()` just returns `5`. For `Identity` specifically this is barely more than `.value` with extra ceremony, but it's the same uniform `extract` every other single-value type in the package shares, and `Identity` is the simplest possible place to see it work.
-
-`Identity.mempty(SomeMonoidType)` builds the identity element, wrapped: `Identity.mempty(Box)` gives `Identity(value=Box.mempty())`. Same non-nominal story as `Identity`'s `Semigroup` support (see the `Monoid` section below) — but unlike `mappend`, this one's a classmethod directly on `Identity`, not a free function, since a classmethod's own `TypeVar` doesn't leak onto every `Identity[A]` the way a nominal instance method would.
-
 ## Functor: doing something to what's inside
 
-`Functor` is the first real capability in the hierarchy — everything before it (`Functional`, `Identity`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.
+`Functor` is the first real capability in the hierarchy — everything before it (`Functional`) was about being an honest, immutable box. `Functor` is about doing something *to* what's in the box, without disturbing the box itself.
 
 Concretely: a `Functor[A]` gives you one operation, `fmap`, which takes a function `A -> B` and hands back the same kind of container, now holding a `B` instead of an `A`.
 
@@ -171,7 +112,7 @@ Box(value=5).fmap(str)   # Box(value='5')
 fmap(str, Box(value=5))  # Box(value='5') -- same thing, free-function form
 ```
 
-Both spellings do the same thing — `box.fmap(f)` and `fmap(f, box)` — pick whichever reads better at the call site. `Box` here is a stand-in for illustration; `Identity` (see its section above) is the real, shipped example, and its `fmap` is exactly this shape.
+Both spellings do the same thing — `box.fmap(f)` and `fmap(f, box)` — pick whichever reads better at the call site. `Box` here is a stand-in for illustration; `Identity` (see its section below) is the real, shipped example, and its `fmap` is exactly this shape.
 
 **Two rules, not just a vibe.** For `fmap` to actually deserve the name "functor," it has to satisfy two laws, for every `Functor` type, forever:
 
@@ -180,61 +121,9 @@ Both spellings do the same thing — `box.fmap(f)` and `fmap(f, box)` — pick w
 
 These aren't just nice-to-haves — Ekans checks both laws for every `Functor` instance with Hypothesis, generating random values *and* random functions to try to break them, rather than trusting a couple of hand-picked examples.
 
-## Const: the box that refuses to look
-
-`Identity` is the functor that changes the *least*. `Const[A, B]` is the functor that changes *nothing at all*, and it earns that in a much stranger way: it doesn't have a value of type `B` to change in the first place.
-
-```python
-from ekans.const import Const
-from ekans.functor import fmap
-
-box = Const(value=1)
-box.fmap(str)   # Const(value=1) -- f never ran
-fmap(len, box)  # Const(value=1) -- same story
-```
-
-`Const[A, B]` holds a real, runtime value of type `A`. `B` exists purely at the type level — nothing of that type is ever stored, so `fmap` has no choice but to hand back the exact same held value, re-tagged from `Const[A, B]` to `Const[A, C]`, no matter what function you pass it or what that function does. In Haskell, this is `data Const a b = Const a`, with `instance Functor (Const a) where fmap _ (Const v) = Const v` — the underscore there is doing all the talking.
-
-This is the same shape as `Proxy[A]` below in one sense (a phantom type parameter nothing ever touches) but a genuinely different animal in another: `Proxy` has *no* runtime field at all, while `Const` holds a completely real value — it just happens to be a value of the type that `fmap` isn't allowed to see.
-
-**Why bother?** Because `Const` is the type that actually exercises `Functor` over a second parameter, rather than the whole container. It's a small, slightly odd example now, but this exact "hold a value, ignore the mapped-over type" trick is precisely what makes lens-like getters possible in richer profunctor-based libraries later on — a preview worth having early, even in its plainest form.
-
-**Equality here works on *both* type parameters**, not just the one `fmap` touches — `Const[int, str]` and `Const[bool, str]` don't type-check as comparable (the held type differs), and neither do `Const[int, str]` and `Const[int, float]` (the phantom type differs, even though nothing of that type is ever actually stored):
-
-```python
-a: Const[int, str] = Const(value=1)
-b: Const[int, float] = Const(value=1)
-
-a == b
-# error: Unsupported operand types for == ("Const[int, str]" and "Const[int, float]")  [operator]
-```
-
-Same mechanism as `Identity`'s type-safe equality above, just extended to two type parameters instead of one — mypy's invariance check works purely at the type level, so it catches the mismatch on `B` even though `B` never shows up in a runtime attribute to compare.
-
-**`point`/`ap`: Applicative-shaped, but never nominally `Applicative`.** In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. Ekans hits a real, verified wall trying to give `Const` that instance nominally: `ap` needs `A: Semigroup` to combine both sides' held values, and `point` needs `A: Monoid` to conjure one from nothing — neither constraint can live on `Apply[B]`/`Pointed[B]`'s ordinary, unconstrained type parameter, the same way `Semigroup`/`Monoid` themselves couldn't (see above). So both stay conditional, exactly like `mappend`/`mempty` already are:
-
-```python
-a: Const[_MonoidBox, str] = Const.point(_MonoidBox, "ignored")
-a  # Const(value=_MonoidBox.mempty()) -- "ignored" never touches the result
-
-from ekans.apply import ap
-
-x: Const[_Box, int] = Const(value=_Box(value=1))
-f: Const[_Box, Callable[[int], str]] = Const(value=_Box(value=2))
-ap(f, x)  # Const(value=_Box(value=3)) -- both held values combined via mappend
-```
-
-`Const.point` is a classmethod, mirroring `Const.mempty` exactly — it takes a `value` purely to keep the familiar `Pointed.point`-shaped call site, then throws it away unconditionally, same as `fmap`'s `f`. `ap` lives as a new case on the *same* free function `Identity`/`Reader` already use — `Const` never has a real `.ap()` method to call, so it can't delegate the way they do; instead it directly `mappend`s both sides' held values, which is exactly what `ap` degenerates to once no `B` value ever gets touched. Worth being honest about what this *isn't*: `isinstance(Const(...), Applicative)` is still `False`, same as `isinstance(Const(...), Monoid)` already was — `Const` satisfies the shape of both operations, never the real thing.
-
-**Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section below for a real, runnable example.
-
-`Const.mempty(SomeMonoidType)` holds the identity element the same way `Identity.mempty` wraps it — `Const.mempty(Box)` gives `Const(value=Box.mempty())`, `B` freely inferred from context, the same way `fmap` freely re-tags it.
-
-`Const` is also `Extractable[A]` (see that section below) — `Const(value=5).extract()` returns `5`, the held `A`, never the phantom `B`. Worth noting alongside `Const[A, B]`'s two-type-parameter equality above: `Extractable[A]` and `Functor[B]` sit on *different* type parameters of the same class, and that composes cleanly — no conflict between the two.
-
 ## Pointed: getting a value into a box
 
-Every box we've built so far, you build by calling its own constructor: `Identity(value=42)`, `Const(value=1)`. `Pointed` is what happens when you want to say that in a *generic* way — "give me a box of this shape, holding this value" — without hardcoding which shape.
+Every box gets built by calling its own constructor: `Identity(value=42)`, `Const(value=1)` (see their sections below). `Pointed` is what happens when you want to say that in a *generic* way — "give me a box of this shape, holding this value" — without hardcoding which shape.
 
 ```python
 from dataclasses import dataclass
@@ -263,82 +152,13 @@ class Box(Pointed[A], Generic[A]):
 Box.point(42)  # Box(value=42)
 ```
 
-`Box` here is an illustrative stand-in, the same way it was in the `Functor` section above; `Identity` (see its section above) is the real, shipped example, and its `point` is exactly this shape.
+`Box` here is an illustrative stand-in, the same way it was in the `Functor` section above; `Identity` (see its section below) is the real, shipped example, and its `point` is exactly this shape.
 
 `point` is a **classmethod**, not an instance method like `fmap`. That's not a style choice — there's no instance to call it on yet, that's the whole point (no pun intended, mostly). Compare: `fmap` transforms a box you already have; `point` conjures a box out of nothing but a bare value and a type.
 
 That difference has a real consequence: `fmap` also gets a free function (`fmap(f, box)`) because the box being passed in already *knows* its own type parameter — mypy reads that straight off the value. `point` doesn't get that luxury. A free `point(Box, 42)` would only ever have a bare class reference to work with, and — checked this directly — it silently type-checks as `Box[Any]` rather than `Box[int]`, no error, just quietly losing the precision that makes any of this worth doing in the first place. `Box.point(42)` has no such problem: it's exactly as precise as `Box(value=42)`. So `point` stays classmethod-only — one honest way to spell it, instead of two, one of which lies to you a little.
 
 In Haskell this is `pure` (or `return`, historically) — the thing that lifts a plain value into `f a` for whatever `Applicative`/`Monad` `f` you're working in. `Pointed` on its own doesn't do much more than that lift; it earns its keep once it's combined with `Apply` into `Applicative` later, the same way `Pointed` + `Apply` gives you `pure` *and* `<*>` together in Haskell.
-
-## Reader: a box that's actually a function
-
-Every box so far holds something you could point at: an int, a string, a value sitting there waiting. `Reader[R, A]` holds something stranger: a function, `R -> A` — "give me an environment, I'll give you a result." Think dependency injection, minus the framework: a `Reader[Config, int]` is a computation that hasn't run yet, waiting on a `Config` to actually produce its `int`.
-
-```python
-from ekans.reader import Reader
-
-get_length: Reader[str, int] = Reader(run=len)
-get_length.run("hello")  # 5
-```
-
-`fmap` works exactly like everywhere else — transform what comes out, leave the box's shape alone — except here "what comes out" is the function's eventual result, not something already sitting in the box:
-
-```python
-from ekans.functor import fmap
-
-louder: Reader[str, str] = get_length.fmap(lambda n: f"{n} characters!")
-louder.run("hello")  # '5 characters!'
-
-fmap(lambda n: f"{n} characters!", get_length).run("hello")  # same thing
-```
-
-Under the hood, `fmap(f, reader)` is just function composition: it builds a *new* `Reader` whose `run` is `f` glued onto the end of the old `run`. Nothing gets called until you actually call `.run(env)` — `Reader` is lazy in exactly the sense that a function you haven't called yet is lazy.
-
-**The equality wrinkle, explained as real theory, not an apology.** Every other box in this guide gets `==`: `Identity(value=1) == Identity(value=1)` is `True`. `Reader` doesn't, on purpose. Two Python functions that compute the same thing are never `==` to each other — Python compares functions by identity, not by behavior, and there's no way around that from inside the language. Giving `Reader` a `__eq__` that compares its wrapped function directly would be worse than useless: `reader.fmap(f)` builds a brand-new closure every time, so it would never equal anything, ever, without ever *looking* broken — no error, just an equality operator that silently always says no. The honest move is to not pretend: `Reader` just doesn't support `==` in any meaningful sense. If you need to know whether two `Reader`s behave the same, the real question is "do they produce the same result for the same environment?" — which means calling `.run(env)` on both and comparing outputs, for whichever environments you actually care about. That's *extensional* equality (functions are equal if they agree everywhere), and it's the same idea Ekans' own test suite leans on to verify `Reader`'s Functor laws, since `==` isn't available to check them the usual way.
-
-`Reader` also implements `Pointed`: `Reader.point(5)` builds a `Reader` that ignores whatever environment it's given and always produces `5` — a computation that doesn't actually need the environment at all:
-
-```python
-always_five: Reader[str, int] = Reader.point(5)
-always_five.run("this string is ignored entirely")  # 5
-always_five.run("so is this one")  # 5
-
-Reader.point(5).fmap(str).run("still ignored")  # '5'
-```
-
-Under the hood, `point` is built from a small standalone combinator, `const`: Haskell's `const :: a -> b -> a`, a function that ignores its second argument and always returns its first. `const(5)` is a function equivalent to `lambda _: 5`; `Reader.point(value) = Reader(run=const(value))`. It's not exported as part of `Reader`'s own concept — it's a small, general-purpose piece of plumbing that happens to live in `ekans.reader` because that's its only user so far.
-
-One last bit of ergonomics: `Reader` is directly callable, so `reader(env)` works exactly like `reader.run(env)`:
-
-```python
-get_length("hello")  # 5 -- same as get_length.run("hello")
-```
-
-That's the whole bridge back to plain Python: anywhere a `Callable[[R], A]` is expected — `map()`, composing with an ordinary function, whatever — a `Reader` can just be handed over directly, no `.run` required.
-
-`Reader` also implements `Apply` (see that section below): `.ap` threads the *same* environment into both the wrapped value and the wrapped function, not two independently-supplied ones —
-
-```python
-add_r: Reader[int, int] = Reader(run=lambda r: r)
-multiply_by_r: Reader[int, Callable[[int], int]] = Reader(run=lambda r: (lambda x: x * r))
-
-threaded = add_r.ap(multiply_by_r)
-threaded.run(3)  # 9  -- both sides saw r=3, not two different r's
-threaded.run(4)  # 16
-```
-
-If the environment leaking into both sides sounds obvious, it's worth checking: it would be just as easy to write an `ap` that accidentally used two *different* environments (say, by hardcoding one side), and the result would still type-check fine — the bug would only show up as wrong numbers at runtime. That's exactly why this got a behavioral test, not just a type-checked one.
-
-Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that section below) — nothing extra to write, same as `Identity`.
-
-**Conditionally a `Semigroup`, pointwise this time.** Same story as `Identity` and `Const` above — `Reader[R, A]` can `mappend` two of itself precisely when `A` can, and never nominally inherits `Semigroup` for the same reason. The combination happens *pointwise*: run both sides against the same environment, then `mappend` the two results — `mappend(f, g).run(r) == f.run(r).mappend(g.run(r))`. It shares the same three-way `ekans.semigroup.mappend` overload as `Identity`/`Const`. See the `Semigroup` section below for a real, runnable example.
-
-`Reader.mempty(SomeMonoidType)` builds the identity element the same way `Reader.point` builds any other value — ignoring the environment entirely: `Reader.mempty(Box).run(anything)` always returns `Box.mempty()`, no matter what `anything` is.
-
-`Reader` is also `Bind` (see that section below): `x.bind(f)` threads the *same* environment into both `self` and whatever `Reader` `f` produces, same threading story as `ap` — `x.bind(f).run(r)` calls `x.run(r)` first, feeds that result to `f`, then runs the resulting `Reader` against that same `r` again.
-
-With both `Applicative` and `Bind` in hand, `Reader` is a `Monad` too (see that section below), the same free composition `Identity` gets — `class Reader(Monad[A], Generic[R, A])` is the whole story, no new methods needed.
 
 ## Apply: when the function is also in a box
 
@@ -378,7 +198,7 @@ number.ap(wrapped_str)   # Box(value='5')
 ap(wrapped_str, number)  # Box(value='5') -- same thing, free-function form
 ```
 
-Same convention as `fmap`: both the method and the free function put "the thing doing the transforming" first — `x.ap(f)` and `ap(f, x)`, matching `x.fmap(f)` and `fmap(f, x)`. `Box` here is a stand-in for illustration; `Identity` and `Reader` (see their sections above) are the real, shipped examples — `Reader`'s is the more interesting one, since its `ap` has to actually thread an environment through both sides rather than just unwrapping two boxes.
+Same convention as `fmap`: both the method and the free function put "the thing doing the transforming" first — `x.ap(f)` and `ap(f, x)`, matching `x.fmap(f)` and `fmap(f, x)`. `Box` here is a stand-in for illustration; `Identity` and `Reader` (see their sections below) are the real, shipped examples — `Reader`'s is the more interesting one, since its `ap` has to actually thread an environment through both sides rather than just unwrapping two boxes.
 
 **The law, and its honest limit.** `Apply` has exactly one law of its own, before `Applicative` adds more: applying wrapped functions one at a time, left to right, gives the same answer as composing them first and applying once —
 
@@ -428,7 +248,7 @@ class Box(Applicative[A], Generic[A]):
 Box.point(5).ap(Box.point(str))  # Box(value='5')
 ```
 
-Notice the class declaration: just `Applicative[A]`, nothing else — no separate `Pointed[A]`/`Apply[A]`/`Functor[A]` in the bases. That's on purpose, not a simplification: since `Applicative` already inherits both, listing them again creates a genuinely broken class (Python can't work out a consistent method resolution order, and raises a `TypeError` at class *definition* time, not at some later call). `Box` here is a stand-in for illustration; `Identity` (see its section above) is the real, shipped `Applicative` — and, being one, needed no new methods at all, just the same base-class change.
+Notice the class declaration: just `Applicative[A]`, nothing else — no separate `Pointed[A]`/`Apply[A]`/`Functor[A]` in the bases. That's on purpose, not a simplification: since `Applicative` already inherits both, listing them again creates a genuinely broken class (Python can't work out a consistent method resolution order, and raises a `TypeError` at class *definition* time, not at some later call). `Box` here is a stand-in for illustration; `Identity` (see its section below) is the real, shipped `Applicative` — and, being one, needed no new methods at all, just the same base-class change.
 
 **The four laws.** These are what make `point`, `ap`, and `fmap` a single coherent system instead of three unrelated methods that happen to share a class:
 
@@ -450,7 +270,7 @@ liftA2(lambda a, b: a + b, Identity(value=2), Identity(value=3))  # Identity(val
 
 Like `ap`, this needs its own `@overload` per concrete type to stay precise — a version typed only against the abstract `Applicative[A]`/`Applicative[B]` type-checks fine but silently hands back the loose `Applicative[C]` for every call, even a plain `Identity` one. That's worth knowing about generally: a free function that touches concrete types only through an abstract handle can look perfectly type-safe while quietly losing precision, with no error to catch it — the exact trap `Pointed.point`'s free-function form fell into and got rejected for entirely (see `Pointed` above). `liftA2` had a way out `point` didn't (a real generic implementation, so the overloads could be added rather than dropping the free function altogether), but the underlying lesson is the same.
 
-`liftA2` also gets a `Const` case, same conditional-on-`A`-being-a-`Semigroup` story as `ap` above (see `Const`'s own section above): `liftA2(f, Const(value=x), Const(value=y))` combines `x` and `y` via `mappend`, `f` never called — the same reasoning `Const.fmap` and `Const.ap` already establish, since there's no `B` value on either side for `f` to actually touch.
+`liftA2` also gets a `Const` case, same conditional-on-`A`-being-a-`Semigroup` story as `ap` above (see `Const`'s own section below): `liftA2(f, Const(value=x), Const(value=y))` combines `x` and `y` via `mappend`, `f` never called — the same reasoning `Const.fmap` and `Const.ap` already establish, since there's no `B` value on either side for `f` to actually touch.
 
 ## Semigroup: squishing two into one
 
@@ -494,7 +314,7 @@ Addition satisfies this (`(1 + 2) + 3 == 1 + (2 + 3)`); subtraction doesn't (`(1
 
 **A first: no override boilerplate at all.** Every other type class here has needed its concrete overrides to narrow a return type away from something loose (`Functor[B]`, `Apply[B]`, ...), usually paired with a `# type: ignore[override]` explaining why. `Semigroup.mappend` sidesteps this entirely with `typing.Self`: the abstract method is declared `def mappend(self, other: Self) -> Self`, and `Self` already means "exactly whatever concrete class this is," precisely, for every subclass, with zero extra typing work.
 
-**Why there's no `Identity`/`Const`/`Reader` class instance here.** Unlike `Functor` or `Apply`, `Semigroup` isn't unconditionally true of a container just because it holds *something* — `Identity[A]` only knows how to `mappend` when `A` itself does (there's no way to combine two `Identity[str]`s by squishing their `str`s together with a method `str` doesn't have). Haskell expresses this as a *constrained instance* (`instance Semigroup a => Semigroup (Identity a)`); Python has no direct equivalent at the class level. Ekans' answer: `Identity`, `Const`, and `Reader` never nominally inherit `Semigroup` at all. Instead, all three show up purely as `ekans.semigroup.mappend`, a single overloaded free function bounded by a `TypeVar("S", bound=Semigroup)`:
+**Why there's no `Identity`/`Const`/`Reader` class instance here.** Unlike `Functor` or `Apply`, `Semigroup` isn't unconditionally true of a container just because it holds *something* — `Identity[A]` only knows how to `mappend` when `A` itself does (there's no way to combine two `Identity[str]`s by squishing their `str`s together with a method `str` doesn't have). Haskell expresses this as a *constrained instance* (`instance Semigroup a => Semigroup (Identity a)`); Python has no direct equivalent at the class level. Ekans' answer: `Identity`, `Const`, and `Reader` (see their sections below) never nominally inherit `Semigroup` at all. Instead, all three show up purely as `ekans.semigroup.mappend`, a single overloaded free function bounded by a `TypeVar("S", bound=Semigroup)`:
 
 ```python
 from ekans.const import Const
@@ -514,122 +334,6 @@ mappend(Identity(value="a"), Identity(value="b"))
 ```
 
 That rejection is real, not just documented convention — `str` genuinely isn't a `Semigroup`, and mypy catches it at the call site. `Box` above isn't a temporary stand-in waiting for a real type to catch up (the way it was for `Functor`) — demonstrating a constrained instance means there will always be a need for a small type that genuinely implements `Semigroup` on its own.
-
-## Sum: addition, boxed
-
-Every `Semigroup` example so far has been a stand-in built purely to demonstrate the shape of the law. `Sum[A]` is the first one that's actually useful: it wraps a value, and `mappend` is just `+`.
-
-```python
-from ekans.sum import Sum
-
-Sum(value=1).mappend(Sum(value=2))  # Sum(value=3)
-Sum(value=1.5).mappend(Sum(value=2.5))  # Sum(value=4.0)
-```
-
-Why bother wrapping a number just to add it? Because plain numbers don't come with one canonical `mappend` — there's more than one reasonable way to combine two of them (`Sum` picks `+`; `Product`, coming next, picks `*`), so `int`/`float` can't just *be* a `Semigroup` on their own without picking a side. Wrapping the number in `Sum` says *which* combining operation you mean, unambiguously. That's the whole reason Haskell's `Data.Monoid` bothers with a newtype here instead of giving `Int` a single built-in instance.
-
-`Sum` is generic over anything that supports `+`, not just built-in numbers:
-
-```python
-from dataclasses import dataclass
-from typing import Generic, TypeVar
-
-from ekans.sum import Sum
-
-A = TypeVar("A")
-
-
-@dataclass(frozen=True, eq=False)
-class Vector(Generic[A]):
-    x: A
-    y: A
-
-    def __add__(self, other: "Vector[A]") -> "Vector[A]":
-        return Vector(x=self.x + other.x, y=self.y + other.y)  # type: ignore[operator]
-
-
-Sum(value=Vector(x=1, y=2)).mappend(Sum(value=Vector(x=3, y=4)))
-# Sum(value=Vector(x=4, y=6))
-```
-
-That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a small `Protocol` requiring a self-typed `__add__`, so *any* type with an `__add__` that takes and returns its own type works — no need to explicitly subclass anything. Try it with a type that has no `__add__` at all and mypy rejects the `Sum(value=...)` call outright, before you ever get to `mappend`.
-
-`Sum` is also `Extractable` (see that section below): `Sum(value=6).extract()` returns the plain `6` back out, no `Sum` wrapper left — the shape that makes `sum = lambda foldable: foldMap(Sum, foldable).extract()` work, once `foldMap` exists.
-
-`Sum.mempty(int)` gives `Sum(value=0)`, `Sum.mempty(float)` gives `Sum(value=0.0)` — the additive identity, explicitly typed (see the `Monoid` section below for why it needs that explicit argument, and why `Sum` still isn't nominally a `Monoid`). Any custom type works too, as long as it implements a `.zero()` classmethod alongside its `__add__` — `int`/`float` are special-cased inside `mempty` since neither has one of its own.
-
-## Product: multiplication, boxed
-
-`Product[M]` is `Sum`'s sibling: same shape, different operation. `mappend` is `*` instead of `+`, bounded by its own small `SupportsMul` `Protocol` requiring a self-typed `__mul__`, structurally rather than by inheritance — same reasoning as `Sum`'s `SupportsAdd` above.
-
-```python
-from ekans.product import Product
-
-Product(value=2).mappend(Product(value=3))    # Product(value=6)
-Product(value=1.5).mappend(Product(value=2))  # Product(value=3.0)
-```
-
-Wrapping the number in `Product` rather than `Sum` says which combining operation you mean for the exact same underlying `int`/`float` — the same disambiguation `Sum` needed above, just picking the other one.
-
-`Product` is also `Extractable`: `Product(value=6).extract()` returns `6`, same shape as `Sum`.
-
-`Product.mempty(int)` gives `Product(value=1)`, `Product.mempty(float)` gives `Product(value=1.0)` — the multiplicative identity, same explicit-`Type[X]` shape as `Sum.mempty` and for the same reason (see the `Monoid` section below). Custom types need a `.one()` classmethod alongside `__mul__`.
-
-## All: everyone has to agree
-
-`Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:
-
-```python
-from ekans.all import All
-
-All(value=True).mappend(All(value=True))    # All(value=True)
-All(value=True).mappend(All(value=False))   # All(value=False)
-```
-
-The name gives away the intuition: combine a bunch of `All`s together and the result is `True` only if *all* of them were. Since there's nothing to be generic over — `bool` is `bool`, there's no version of AND that varies by what's inside — `All` skips the `Protocol`/`TypeVar` machinery `Sum`/`Product` needed entirely, and its `__eq__` is typed against plain `object` rather than needing the type-parameter-narrowing trick from `Identity`/`Sum`/`Product`, since there's no type parameter to mismatch in the first place.
-
-`All` is also `Extractable[bool]` — not a generic `Extractable[A]`, since `All` itself was never generic: `All(value=True).extract()` returns `True`.
-
-`All` is also, genuinely, a `Monoid` — the one type in this round with no erasure wall to hit, since it isn't generic over anything. `All.mempty()` is exactly the nullary classmethod `Monoid` promises, no `Type[X]` argument needed: `All.mempty() == All(value=True)`, `True` being AND's identity (combine anything with `True` and you get that thing back).
-
-## Ap: a box, held by a box
-
-`Sum`/`Product`/`All` combine plain values. `Ap[S]` combines *boxed* ones — it wraps an `Identity[S]` (where `S` is itself a `Semigroup`), and `mappend` reaches inside both boxes, combines what's there, and re-wraps the result:
-
-```python
-from dataclasses import dataclass
-
-from ekans.ap import Ap
-from ekans.identity import Identity
-from ekans.semigroup import Semigroup
-
-
-@dataclass(frozen=True, eq=False)
-class Box(Semigroup):
-    value: int
-
-    def mappend(self, other: "Box") -> "Box":
-        return Box(value=self.value + other.value)
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, Box) and self.value == other.value
-
-    def __hash__(self) -> int:
-        return hash(self.value)
-
-
-a = Ap(value=Identity(value=Box(value=1)))
-b = Ap(value=Identity(value=Box(value=2)))
-a.mappend(b)  # Ap(value=Identity(value=Box(value=3)))
-```
-
-Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.value, other.value))` — a direct transcription of Haskell's `mappend (Ap x) (Ap y) = Ap (liftA2 mappend x y)`, which is exactly why `liftA2` (above) needed to exist first: `Ap` isn't reimplementing that logic by hand, it's built straight on top.
-
-**The honest gap:** Haskell's `Ap` is `newtype Ap f a = Ap { getAp :: f a }`, generic over *any* `Applicative f` — you could build `Ap Maybe Int`, `Ap [] Int`, `Ap IO Int`, whatever. Ekans' `Ap[S]` can't do that: it's fixed to wrap `Identity[S]` specifically, not generic over the box itself. This isn't a shortcut taken for convenience — it's a real wall. Python's type system has no *higher-kinded types*: a `TypeVar` can only ever stand for a concrete type, never for a type constructor waiting to be filled in. Try to write `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar`, and mypy refuses outright (`Type variable "F" used with arguments`) — there's no way to say "some box, whichever one, applied to `A`" the way Haskell's kind system lets you. So Ekans' `Ap` picks one box (`Identity`, the simplest one available) and stops there, rather than pretending to a generality the type system genuinely can't check.
-
-`Ap` is also `Extractable[S]` — and, unlike every other instance in this round, it doesn't stop at its own immediate field. `Ap[S]`'s `.value` is an `Identity[S]`, but `extract` reaches straight through it to `S`: `a.extract()` on `Ap(value=Identity(value=Box(value=1)))` returns `Box(value=1)` directly, not `Identity(value=Box(value=1)))`. The implementation is exactly that one-line delegation, `self.value.extract()` — `Identity` being `Extractable` too is what makes it possible.
-
-`Ap.mempty(SomeMonoidType)` is the simplest `mempty` in the package — no `int`/`float` registry needed the way `Sum`/`Product` need one, since `S` is already bound to `Semigroup` and the `Type[X]` argument is bound one notch tighter, to `Monoid`, which already has its own real `mempty()`. `Ap.mempty` just delegates straight to it: `Identity(value=value_type.mempty())`.
 
 ## Extractable: getting a value out of a box
 
@@ -661,7 +365,7 @@ class Box(Extractable[A], Generic[A]):
 Box(value=42).extract()  # 42
 ```
 
-`Box` here is an illustrative stand-in, the same way it was for `Functor`/`Pointed` above; `Identity`, `Sum`, `Product`, `All`, `Const`, and `Ap` are the real, shipped examples — every type in the package that genuinely holds exactly one value now has `extract` (`Reader`/`Star` don't, since they wrap a function rather than holding a value directly, and `Proxy` doesn't, since it holds nothing at runtime at all).
+`Box` here is an illustrative stand-in, the same way it was for `Functor`/`Pointed` above; `Identity`, `Sum`, `Product`, `All`, `Const`, and `Ap` (see their sections below) are the real, shipped examples — every type in the package that genuinely holds exactly one value now has `extract` (`Reader`/`Star` don't, since they wrap a function rather than holding a value directly, and `Proxy` doesn't, since it holds nothing at runtime at all).
 
 Like `point`, `extract` needed no design detour to get precise: it's an ordinary instance method narrowing only its *return* type per concrete class, which mypy already tracks exactly — no `# type: ignore` anywhere, on any of the six instances.
 
@@ -704,7 +408,7 @@ Box(value=5).mappend(Box.mempty())  # Box(value=5) -- unchanged either side
 
 **The honest wall this hits.** Haskell's `mempty :: a` is nullary — no arguments, the type alone tells you what to build. Python can't do this for a *generic* container: types are erased at runtime, so a hypothetical `Sum.mempty()` has no way to know, when the code actually runs, whether you wanted `int`'s `0` or `float`'s `0.0`. This isn't a hunch — it was checked directly, and the result is worse than a type error: a hardcoded `Sum.mempty()` lets mypy *confidently and wrongly* infer `Sum[float]` from context while the running code silently hands back an `int` `0`. A silent wrong answer that type-checks clean is far worse than a loud one that doesn't.
 
-So `Sum`/`Product`/`Ap`'s `mempty` takes the type explicitly — `Sum.mempty(int)`, not `Sum.mempty()` — trading a little of Haskell's elegance for something that's actually correct. And because a classmethod requiring that extra argument doesn't honestly satisfy `Monoid`'s zero-argument contract (verified: `mypy --strict` flags it as a real signature-incompatibility error, not a narrow-return-type situation `# type: ignore` could paper over), those three don't nominally inherit `Monoid` at all — only `All` does, since it isn't generic over anything and has nothing to erase. See each type's own section above for its `mempty`.
+So `Sum`/`Product`/`Ap`'s `mempty` takes the type explicitly — `Sum.mempty(int)`, not `Sum.mempty()` — trading a little of Haskell's elegance for something that's actually correct. And because a classmethod requiring that extra argument doesn't honestly satisfy `Monoid`'s zero-argument contract (verified: `mypy --strict` flags it as a real signature-incompatibility error, not a narrow-return-type situation `# type: ignore` could paper over), those three don't nominally inherit `Monoid` at all — only `All` does, since it isn't generic over anything and has nothing to erase. See each type's own section below for its `mempty`.
 
 ## Bind: chaining boxes without nesting them
 
@@ -758,7 +462,7 @@ m.bind(f).bind(g) == m.bind(lambda x: f(x).bind(g))
 
 Verified directly: holds for a correct `bind`, and genuinely caught by a deliberately broken one (applying `f` twice).
 
-**Why `Const` doesn't get a `Bind` instance.** `Const[A, B]`'s `bind` would need `f: Callable[[B], Const[A, C]]` — but `Const` never stores anything of type `B` to actually hand `f`, the exact same reason `Const.fmap` is a no-op re-tag. The only well-typed `bind` for `Const` would have to ignore `f` entirely, which isn't a stylistic choice to skip — it's two real problems, checked directly rather than assumed: it offers *zero* capability beyond what `fmap` already provides (a `bind` that never calls its function isn't doing anything new), and it has a genuine type-precision failure — `reveal_type` on a `Const.bind(...)` call resolves to `Const[int, Never]`, not a sensible type, because nothing in the expression ever pins down what the result's phantom type should be. `Identity` and `Reader` (see their sections above) are the real, shipped instances.
+**Why `Const` doesn't get a `Bind` instance.** `Const[A, B]`'s `bind` would need `f: Callable[[B], Const[A, C]]` — but `Const` never stores anything of type `B` to actually hand `f`, the exact same reason `Const.fmap` is a no-op re-tag. The only well-typed `bind` for `Const` would have to ignore `f` entirely, which isn't a stylistic choice to skip — it's two real problems, checked directly rather than assumed: it offers *zero* capability beyond what `fmap` already provides (a `bind` that never calls its function isn't doing anything new), and it has a genuine type-precision failure — `reveal_type` on a `Const.bind(...)` call resolves to `Const[int, Never]`, not a sensible type, because nothing in the expression ever pins down what the result's phantom type should be. `Identity` and `Reader` (see their sections below) are the real, shipped instances.
 
 ## Monad: Applicative and Bind, evolved
 
@@ -808,6 +512,309 @@ m.bind(point) == m         # right identity
 ```
 
 Verified directly: both hold for a correct implementation, and left identity genuinely catches a broken `point` (one that quietly nudges its argument) — not a vacuous pass.
+
+## Identity: the box that changes nothing
+
+`Identity[A]` is the simplest possible box: it holds exactly one value of type `A`, and does nothing clever with it whatsoever.
+
+```python
+from ekans.identity import Identity
+
+box = Identity(value=42)
+box.value  # 42
+
+Identity(value=1) == Identity(value=1)  # True — same value in, same box out
+
+box.value = 7
+# Traceback (most recent call last):
+#   ...
+# dataclasses.FrozenInstanceError: cannot assign to field 'value'
+```
+
+In Haskell this is `newtype Identity a = Identity a` — a type that exists almost entirely to prove a point. `Identity` is the textbook `Functor` (see that section above): calling `box.fmap(str)` turns `Identity(value=42)` into `Identity(value="42")` — same box, transformed insides, nothing else disturbed:
+
+```python
+box = Identity(value=42)
+box.fmap(str)  # Identity(value='42')
+
+from ekans.functor import fmap
+fmap(str, box)  # Identity(value='42') -- same thing, free-function form
+```
+
+That's the whole idea of a functor in one sentence: **change what's inside without changing the shape of the container.** `Identity` is the functor that changes the *least* — it's the control group: it's also `Identity`, not some illustrative stand-in, that every `Functor` law gets checked against first for exactly that reason — if a law doesn't hold for the box that does nothing, it isn't going to hold for anything fancier either.
+
+**A fun wrinkle: equality has a type, too.** In Haskell, `Identity 1 == Identity "a"` isn't a bug you catch at runtime — the compiler refuses to build it, because `Eq (Identity a)` only exists for a given `a`, and `Int` isn't `String`. Ekans gets the same guarantee, just enforced by mypy instead of `ghc`:
+
+```python
+a: Identity[int] = Identity(value=1)
+b: Identity[str] = Identity(value="not an int")
+
+a == b
+# error: Unsupported operand types for == ("Identity[int]" and "Identity[str]")  [operator]
+```
+
+That happens because `Identity.__eq__` is typed against `Identity[A]` — the same `A` as `self` — instead of the usual `object`. It costs a `# type: ignore[override]` on the definition (mypy considers narrowing `__eq__`'s parameter an LSP violation, and normally it's right to complain — here it's exactly the point). Comparing to something that isn't an `Identity` at all, like `Identity(value=1) == 5`, still type-checks fine and is just `False` at runtime, same as ordinary Python — only *same-class-different-type-parameter* comparisons get turned into an error.
+
+`Identity` is also the first type shipped in the package to actually implement `Pointed` (see that section above): `Identity.point(5)` builds `Identity(value=5)` directly, no instance required to call it on:
+
+```python
+Identity.point(5)  # Identity(value=5)
+Identity.point(5).fmap(str)  # Identity(value='5') -- point and fmap chain fine
+```
+
+`Identity` is also the first shipped `Apply` instance (see that section above): `.ap` unwraps both boxes and applies one to the other —
+
+```python
+wrapped_fn: Identity[Callable[[int], str]] = Identity(value=str)
+Identity(value=5).ap(wrapped_fn)  # Identity(value='5')
+```
+
+Since `Identity` has both `point` and `ap`, it's an `Applicative` too (see that section above) — nothing extra to write, `point`/`ap`/`fmap` already do all the work.
+
+`Identity` also has `bind` (see the `Bind` section above): `Identity(value=5).bind(lambda a: Identity(value=str(a)))` gives `Identity(value='5')` — no nesting, since `bind` un-nests automatically where `fmap` wouldn't. With both `Applicative` and `Bind` in hand, `Identity` is a `Monad` too (see that section above), for free — `class Identity(Monad[A], Extractable[A], Generic[A])` is the whole story, same zero-effort composition `Applicative` already demonstrated for `Pointed` + `Apply`.
+
+**Conditionally a `Semigroup`, but only via the free function.** `Identity[A]` can `mappend` two of itself precisely when `A` can — `Identity(value=1)` and `Identity(value=2)` combine fine if the wrapped value knows how, but there's no principled way to combine `Identity(value="a")` and `Identity(value="b")` unless `str` itself is a `Semigroup` (it isn't, here). Because that constraint lives on `A`, not on `Identity` itself, `Identity` never nominally inherits `Semigroup` — instead, `ekans.semigroup.mappend(a, b)` is a free function bounded by `TypeVar("S", bound=Semigroup)`, so calling it on `Identity[str]` is a `mypy --strict` error, not a runtime crash. See the `Semigroup` section above for the full story.
+
+`Identity` is also `Extractable` (see that section above) — `Identity(value=5).extract()` just returns `5`. For `Identity` specifically this is barely more than `.value` with extra ceremony, but it's the same uniform `extract` every other single-value type in the package shares, and `Identity` is the simplest possible place to see it work.
+
+`Identity.mempty(SomeMonoidType)` builds the identity element, wrapped: `Identity.mempty(Box)` gives `Identity(value=Box.mempty())`. Same non-nominal story as `Identity`'s `Semigroup` support (see the `Monoid` section above) — but unlike `mappend`, this one's a classmethod directly on `Identity`, not a free function, since a classmethod's own `TypeVar` doesn't leak onto every `Identity[A]` the way a nominal instance method would.
+
+## Const: the box that refuses to look
+
+`Identity` is the functor that changes the *least*. `Const[A, B]` is the functor that changes *nothing at all*, and it earns that in a much stranger way: it doesn't have a value of type `B` to change in the first place.
+
+```python
+from ekans.const import Const
+from ekans.functor import fmap
+
+box = Const(value=1)
+box.fmap(str)   # Const(value=1) -- f never ran
+fmap(len, box)  # Const(value=1) -- same story
+```
+
+`Const[A, B]` holds a real, runtime value of type `A`. `B` exists purely at the type level — nothing of that type is ever stored, so `fmap` has no choice but to hand back the exact same held value, re-tagged from `Const[A, B]` to `Const[A, C]`, no matter what function you pass it or what that function does. In Haskell, this is `data Const a b = Const a`, with `instance Functor (Const a) where fmap _ (Const v) = Const v` — the underscore there is doing all the talking.
+
+This is the same shape as `Proxy[A]` below in one sense (a phantom type parameter nothing ever touches) but a genuinely different animal in another: `Proxy` has *no* runtime field at all, while `Const` holds a completely real value — it just happens to be a value of the type that `fmap` isn't allowed to see.
+
+**Why bother?** Because `Const` is the type that actually exercises `Functor` over a second parameter, rather than the whole container. It's a small, slightly odd example now, but this exact "hold a value, ignore the mapped-over type" trick is precisely what makes lens-like getters possible in richer profunctor-based libraries later on — a preview worth having early, even in its plainest form.
+
+**Equality here works on *both* type parameters**, not just the one `fmap` touches — `Const[int, str]` and `Const[bool, str]` don't type-check as comparable (the held type differs), and neither do `Const[int, str]` and `Const[int, float]` (the phantom type differs, even though nothing of that type is ever actually stored):
+
+```python
+a: Const[int, str] = Const(value=1)
+b: Const[int, float] = Const(value=1)
+
+a == b
+# error: Unsupported operand types for == ("Const[int, str]" and "Const[int, float]")  [operator]
+```
+
+Same mechanism as `Identity`'s type-safe equality above, just extended to two type parameters instead of one — mypy's invariance check works purely at the type level, so it catches the mismatch on `B` even though `B` never shows up in a runtime attribute to compare.
+
+**`point`/`ap`: Applicative-shaped, but never nominally `Applicative`.** In Haskell, `Const`'s `Applicative` instance requires `Monoid a` (`pure _ = Const mempty`) — constructing a `Const[A, B]` from just a `B` needs *some* value of type `A` to hold, and the Monoid identity element is the only principled source. Ekans hits a real, verified wall trying to give `Const` that instance nominally: `ap` needs `A: Semigroup` to combine both sides' held values, and `point` needs `A: Monoid` to conjure one from nothing — neither constraint can live on `Apply[B]`/`Pointed[B]`'s ordinary, unconstrained type parameter, the same way `Semigroup`/`Monoid` themselves couldn't (see above). So both stay conditional, exactly like `mappend`/`mempty` already are:
+
+```python
+a: Const[_MonoidBox, str] = Const.point(_MonoidBox, "ignored")
+a  # Const(value=_MonoidBox.mempty()) -- "ignored" never touches the result
+
+from ekans.apply import ap
+
+x: Const[_Box, int] = Const(value=_Box(value=1))
+f: Const[_Box, Callable[[int], str]] = Const(value=_Box(value=2))
+ap(f, x)  # Const(value=_Box(value=3)) -- both held values combined via mappend
+```
+
+`Const.point` is a classmethod, mirroring `Const.mempty` exactly — it takes a `value` purely to keep the familiar `Pointed.point`-shaped call site, then throws it away unconditionally, same as `fmap`'s `f`. `ap` lives as a new case on the *same* free function `Identity`/`Reader` already use — `Const` never has a real `.ap()` method to call, so it can't delegate the way they do; instead it directly `mappend`s both sides' held values, which is exactly what `ap` degenerates to once no `B` value ever gets touched. Worth being honest about what this *isn't*: `isinstance(Const(...), Applicative)` is still `False`, same as `isinstance(Const(...), Monoid)` already was — `Const` satisfies the shape of both operations, never the real thing.
+
+**Conditionally a `Semigroup`, same story as `Identity`.** `Const[A, B]`'s held value is exactly what `mappend` would combine, so — same as `Identity` above — `Const` can `mappend` two of itself precisely when `A` can, phantom `B` along for the ride untouched. And same reasoning: since that constraint lives on `A`, `Const` never nominally inherits `Semigroup` either. It shows up purely via the free function, sharing the very same `ekans.semigroup.mappend` that handles `Identity` — the two live together as a single `@overload` set, since `mappend` has no generic `Apply[A]`-style fallback to fall back on. See the `Semigroup` section above for a real, runnable example.
+
+`Const.mempty(SomeMonoidType)` holds the identity element the same way `Identity.mempty` wraps it — `Const.mempty(Box)` gives `Const(value=Box.mempty())`, `B` freely inferred from context, the same way `fmap` freely re-tags it.
+
+`Const` is also `Extractable[A]` (see that section above) — `Const(value=5).extract()` returns `5`, the held `A`, never the phantom `B`. Worth noting alongside `Const[A, B]`'s two-type-parameter equality above: `Extractable[A]` and `Functor[B]` sit on *different* type parameters of the same class, and that composes cleanly — no conflict between the two.
+
+## Reader: a box that's actually a function
+
+Every box so far holds something you could point at: an int, a string, a value sitting there waiting. `Reader[R, A]` holds something stranger: a function, `R -> A` — "give me an environment, I'll give you a result." Think dependency injection, minus the framework: a `Reader[Config, int]` is a computation that hasn't run yet, waiting on a `Config` to actually produce its `int`.
+
+```python
+from ekans.reader import Reader
+
+get_length: Reader[str, int] = Reader(run=len)
+get_length.run("hello")  # 5
+```
+
+`fmap` works exactly like everywhere else — transform what comes out, leave the box's shape alone — except here "what comes out" is the function's eventual result, not something already sitting in the box:
+
+```python
+from ekans.functor import fmap
+
+louder: Reader[str, str] = get_length.fmap(lambda n: f"{n} characters!")
+louder.run("hello")  # '5 characters!'
+
+fmap(lambda n: f"{n} characters!", get_length).run("hello")  # same thing
+```
+
+Under the hood, `fmap(f, reader)` is just function composition: it builds a *new* `Reader` whose `run` is `f` glued onto the end of the old `run`. Nothing gets called until you actually call `.run(env)` — `Reader` is lazy in exactly the sense that a function you haven't called yet is lazy.
+
+**The equality wrinkle, explained as real theory, not an apology.** Every other box in this guide gets `==`: `Identity(value=1) == Identity(value=1)` is `True`. `Reader` doesn't, on purpose. Two Python functions that compute the same thing are never `==` to each other — Python compares functions by identity, not by behavior, and there's no way around that from inside the language. Giving `Reader` a `__eq__` that compares its wrapped function directly would be worse than useless: `reader.fmap(f)` builds a brand-new closure every time, so it would never equal anything, ever, without ever *looking* broken — no error, just an equality operator that silently always says no. The honest move is to not pretend: `Reader` just doesn't support `==` in any meaningful sense. If you need to know whether two `Reader`s behave the same, the real question is "do they produce the same result for the same environment?" — which means calling `.run(env)` on both and comparing outputs, for whichever environments you actually care about. That's *extensional* equality (functions are equal if they agree everywhere), and it's the same idea Ekans' own test suite leans on to verify `Reader`'s Functor laws, since `==` isn't available to check them the usual way.
+
+`Reader` also implements `Pointed`: `Reader.point(5)` builds a `Reader` that ignores whatever environment it's given and always produces `5` — a computation that doesn't actually need the environment at all:
+
+```python
+always_five: Reader[str, int] = Reader.point(5)
+always_five.run("this string is ignored entirely")  # 5
+always_five.run("so is this one")  # 5
+
+Reader.point(5).fmap(str).run("still ignored")  # '5'
+```
+
+Under the hood, `point` is built from a small standalone combinator, `const`: Haskell's `const :: a -> b -> a`, a function that ignores its second argument and always returns its first. `const(5)` is a function equivalent to `lambda _: 5`; `Reader.point(value) = Reader(run=const(value))`. It's not exported as part of `Reader`'s own concept — it's a small, general-purpose piece of plumbing that happens to live in `ekans.reader` because that's its only user so far.
+
+One last bit of ergonomics: `Reader` is directly callable, so `reader(env)` works exactly like `reader.run(env)`:
+
+```python
+get_length("hello")  # 5 -- same as get_length.run("hello")
+```
+
+That's the whole bridge back to plain Python: anywhere a `Callable[[R], A]` is expected — `map()`, composing with an ordinary function, whatever — a `Reader` can just be handed over directly, no `.run` required.
+
+`Reader` also implements `Apply` (see that section above): `.ap` threads the *same* environment into both the wrapped value and the wrapped function, not two independently-supplied ones —
+
+```python
+add_r: Reader[int, int] = Reader(run=lambda r: r)
+multiply_by_r: Reader[int, Callable[[int], int]] = Reader(run=lambda r: (lambda x: x * r))
+
+threaded = add_r.ap(multiply_by_r)
+threaded.run(3)  # 9  -- both sides saw r=3, not two different r's
+threaded.run(4)  # 16
+```
+
+If the environment leaking into both sides sounds obvious, it's worth checking: it would be just as easy to write an `ap` that accidentally used two *different* environments (say, by hardcoding one side), and the result would still type-check fine — the bug would only show up as wrong numbers at runtime. That's exactly why this got a behavioral test, not just a type-checked one.
+
+Since `Reader` has both `point` and `ap`, it's an `Applicative` too (see that section above) — nothing extra to write, same as `Identity`.
+
+**Conditionally a `Semigroup`, pointwise this time.** Same story as `Identity` and `Const` above — `Reader[R, A]` can `mappend` two of itself precisely when `A` can, and never nominally inherits `Semigroup` for the same reason. The combination happens *pointwise*: run both sides against the same environment, then `mappend` the two results — `mappend(f, g).run(r) == f.run(r).mappend(g.run(r))`. It shares the same three-way `ekans.semigroup.mappend` overload as `Identity`/`Const`. See the `Semigroup` section above for a real, runnable example.
+
+`Reader.mempty(SomeMonoidType)` builds the identity element the same way `Reader.point` builds any other value — ignoring the environment entirely: `Reader.mempty(Box).run(anything)` always returns `Box.mempty()`, no matter what `anything` is.
+
+`Reader` is also `Bind` (see that section above): `x.bind(f)` threads the *same* environment into both `self` and whatever `Reader` `f` produces, same threading story as `ap` — `x.bind(f).run(r)` calls `x.run(r)` first, feeds that result to `f`, then runs the resulting `Reader` against that same `r` again.
+
+With both `Applicative` and `Bind` in hand, `Reader` is a `Monad` too (see that section above), the same free composition `Identity` gets — `class Reader(Monad[A], Generic[R, A])` is the whole story, no new methods needed.
+
+## Sum: addition, boxed
+
+Every `Semigroup` example so far has been a stand-in built purely to demonstrate the shape of the law. `Sum[A]` is the first one that's actually useful: it wraps a value, and `mappend` is just `+`.
+
+```python
+from ekans.sum import Sum
+
+Sum(value=1).mappend(Sum(value=2))  # Sum(value=3)
+Sum(value=1.5).mappend(Sum(value=2.5))  # Sum(value=4.0)
+```
+
+Why bother wrapping a number just to add it? Because plain numbers don't come with one canonical `mappend` — there's more than one reasonable way to combine two of them (`Sum` picks `+`; `Product`, coming next, picks `*`), so `int`/`float` can't just *be* a `Semigroup` on their own without picking a side. Wrapping the number in `Sum` says *which* combining operation you mean, unambiguously. That's the whole reason Haskell's `Data.Monoid` bothers with a newtype here instead of giving `Int` a single built-in instance.
+
+`Sum` is generic over anything that supports `+`, not just built-in numbers:
+
+```python
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+from ekans.sum import Sum
+
+A = TypeVar("A")
+
+
+@dataclass(frozen=True, eq=False)
+class Vector(Generic[A]):
+    x: A
+    y: A
+
+    def __add__(self, other: "Vector[A]") -> "Vector[A]":
+        return Vector(x=self.x + other.x, y=self.y + other.y)  # type: ignore[operator]
+
+
+Sum(value=Vector(x=1, y=2)).mappend(Sum(value=Vector(x=3, y=4)))
+# Sum(value=Vector(x=4, y=6))
+```
+
+That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a small `Protocol` requiring a self-typed `__add__`, so *any* type with an `__add__` that takes and returns its own type works — no need to explicitly subclass anything. Try it with a type that has no `__add__` at all and mypy rejects the `Sum(value=...)` call outright, before you ever get to `mappend`.
+
+`Sum` is also `Extractable` (see that section above): `Sum(value=6).extract()` returns the plain `6` back out, no `Sum` wrapper left — the shape that makes `sum = lambda foldable: foldMap(Sum, foldable).extract()` work, once `foldMap` exists.
+
+`Sum.mempty(int)` gives `Sum(value=0)`, `Sum.mempty(float)` gives `Sum(value=0.0)` — the additive identity, explicitly typed (see the `Monoid` section above for why it needs that explicit argument, and why `Sum` still isn't nominally a `Monoid`). Any custom type works too, as long as it implements a `.zero()` classmethod alongside its `__add__` — `int`/`float` are special-cased inside `mempty` since neither has one of its own.
+
+## Product: multiplication, boxed
+
+`Product[M]` is `Sum`'s sibling: same shape, different operation. `mappend` is `*` instead of `+`, bounded by its own small `SupportsMul` `Protocol` requiring a self-typed `__mul__`, structurally rather than by inheritance — same reasoning as `Sum`'s `SupportsAdd` above.
+
+```python
+from ekans.product import Product
+
+Product(value=2).mappend(Product(value=3))    # Product(value=6)
+Product(value=1.5).mappend(Product(value=2))  # Product(value=3.0)
+```
+
+Wrapping the number in `Product` rather than `Sum` says which combining operation you mean for the exact same underlying `int`/`float` — the same disambiguation `Sum` needed above, just picking the other one.
+
+`Product` is also `Extractable`: `Product(value=6).extract()` returns `6`, same shape as `Sum`.
+
+`Product.mempty(int)` gives `Product(value=1)`, `Product.mempty(float)` gives `Product(value=1.0)` — the multiplicative identity, same explicit-`Type[X]` shape as `Sum.mempty` and for the same reason (see the `Monoid` section above). Custom types need a `.one()` classmethod alongside `__mul__`.
+
+## All: everyone has to agree
+
+`Sum`/`Product` are generic over anything with the right operator. `All` isn't generic at all — it wraps exactly one `bool`, and `mappend` is logical AND:
+
+```python
+from ekans.all import All
+
+All(value=True).mappend(All(value=True))    # All(value=True)
+All(value=True).mappend(All(value=False))   # All(value=False)
+```
+
+The name gives away the intuition: combine a bunch of `All`s together and the result is `True` only if *all* of them were. Since there's nothing to be generic over — `bool` is `bool`, there's no version of AND that varies by what's inside — `All` skips the `Protocol`/`TypeVar` machinery `Sum`/`Product` needed entirely, and its `__eq__` is typed against plain `object` rather than needing the type-parameter-narrowing trick from `Identity`/`Sum`/`Product`, since there's no type parameter to mismatch in the first place.
+
+`All` is also `Extractable[bool]` — not a generic `Extractable[A]`, since `All` itself was never generic: `All(value=True).extract()` returns `True`.
+
+`All` is also, genuinely, a `Monoid` — the one type in this round with no erasure wall to hit, since it isn't generic over anything. `All.mempty()` is exactly the nullary classmethod `Monoid` promises, no `Type[X]` argument needed: `All.mempty() == All(value=True)`, `True` being AND's identity (combine anything with `True` and you get that thing back).
+
+## Ap: a box, held by a box
+
+`Sum`/`Product`/`All` combine plain values. `Ap[S]` combines *boxed* ones — it wraps an `Identity[S]` (where `S` is itself a `Semigroup`), and `mappend` reaches inside both boxes, combines what's there, and re-wraps the result:
+
+```python
+from dataclasses import dataclass
+
+from ekans.ap import Ap
+from ekans.identity import Identity
+from ekans.semigroup import Semigroup
+
+
+@dataclass(frozen=True, eq=False)
+class Box(Semigroup):
+    value: int
+
+    def mappend(self, other: "Box") -> "Box":
+        return Box(value=self.value + other.value)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Box) and self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+a = Ap(value=Identity(value=Box(value=1)))
+b = Ap(value=Identity(value=Box(value=2)))
+a.mappend(b)  # Ap(value=Identity(value=Box(value=3)))
+```
+
+Under the hood, `mappend` is `Ap(value=liftA2(lambda a, b: a.mappend(b), self.value, other.value))` — a direct transcription of Haskell's `mappend (Ap x) (Ap y) = Ap (liftA2 mappend x y)`, which is exactly why `liftA2` (see the `Applicative` section above) needed to exist first: `Ap` isn't reimplementing that logic by hand, it's built straight on top.
+
+**The honest gap:** Haskell's `Ap` is `newtype Ap f a = Ap { getAp :: f a }`, generic over *any* `Applicative f` — you could build `Ap Maybe Int`, `Ap [] Int`, `Ap IO Int`, whatever. Ekans' `Ap[S]` can't do that: it's fixed to wrap `Identity[S]` specifically, not generic over the box itself. This isn't a shortcut taken for convenience — it's a real wall. Python's type system has no *higher-kinded types*: a `TypeVar` can only ever stand for a concrete type, never for a type constructor waiting to be filled in. Try to write `Generic[F, A]` with a field typed `F[A]` where `F` is a bare `TypeVar`, and mypy refuses outright (`Type variable "F" used with arguments`) — there's no way to say "some box, whichever one, applied to `A`" the way Haskell's kind system lets you. So Ekans' `Ap` picks one box (`Identity`, the simplest one available) and stops there, rather than pretending to a generality the type system genuinely can't check.
+
+`Ap` is also `Extractable[S]` — and, unlike every other instance in this round, it doesn't stop at its own immediate field. `Ap[S]`'s `.value` is an `Identity[S]`, but `extract` reaches straight through it to `S`: `a.extract()` on `Ap(value=Identity(value=Box(value=1)))` returns `Box(value=1)` directly, not `Identity(value=Box(value=1)))`. The implementation is exactly that one-line delegation, `self.value.extract()` — `Identity` being `Extractable` too is what makes it possible.
+
+`Ap.mempty(SomeMonoidType)` is the simplest `mempty` in the package — no `int`/`float` registry needed the way `Sum`/`Product` need one, since `S` is already bound to `Semigroup` and the `Type[X]` argument is bound one notch tighter, to `Monoid`, which already has its own real `mempty()`. `Ap.mempty` just delegates straight to it: `Identity(value=value_type.mempty())`.
 
 ## do: turning bind chains into procedural-looking code
 
@@ -1037,10 +1044,15 @@ This is the first conditional instance in this codebase needing *two* independen
 
 These don't exist in the package yet. Each one gets its own full section, complete with theory and jokes, the moment it lands — this is just so you can see where the hierarchy is headed.
 
+- **Contravariant** — the mirror image of `Functor`, one level down: `contramap :: (b -> a) -> f a -> f b` reverses `fmap`'s arrow instead of composing with it. The classic example is a predicate, `a -> bool`: given one that checks an `a`, and a function from `b` to `a`, you get one that checks a `b` for free — you can only feed it *smaller* inputs, never transform its output, which is exactly `Functor`'s deal turned inside out.
 - **Extend** — the dual of `Bind`: instead of chaining box-producing functions together, it lets a function that consumes a *whole box* (`w a -> b`) be applied across a structure without collapsing it (`extend`/`duplicate`).
 - **Comonad** — `Functor`, `Extractable`, and `Extend`, together — the mirror image of `Monad`.
 - **Category** — the algebra of "and then" (composition), plus a no-op that does nothing when composed.
 - **Profunctor** — a box with an in-door and an out-door, each independently adaptable.
 - **Strong** — a `Profunctor` that can politely ignore half a tuple while it works on the other half.
+- **Choice** — a `Profunctor` that can politely ignore half an `Either` while it works on the other half, the sum-type counterpart to `Strong`'s product-type version.
 - **Star** — a `Profunctor` built by wrapping up a function that returns a *boxed* value (`a -> f b`) instead of a plain one, so `dimap` can reach in through the box too. This is the interesting one: when the box is a `Monad`, composing two `Star`s is exactly Kleisli composition — chaining effectful functions end to end. Give `Star` its own `Category` instance on top of that composition and you get Haskell's `Kleisli` arrow — the `Arrow` built for monadic effects. (Not every `Arrow` looks like this — plain functions are an `Arrow` too, no box in sight — but the Kleisli case, the one people actually reach for, is precisely `Star` plus `Category`.) It comes essentially free once `Category`, `Strong`, and `Monad` already exist, rather than needing its own bespoke machinery.
 - **Proxy[A]** — a box that was never holding anything to begin with; `A` exists only on the label, never at runtime. Named after Haskell's `Data.Proxy` — not to be confused with the `profunctors` package's *different* `Forget` type, which actually does hold a value and might show up here later under its own name. `Const` above is its cousin with a real value inside.
+- **Bifunctor** — like `Functor`, but with *two* type parameters to map over instead of one: `bimap :: (a -> a') -> (b -> b') -> p a b -> p a' b'`, plus `first`/`second` for touching just one side. Where `Const[A, B]`'s `Functor` instance is deliberately blind to `A`, a `Bifunctor` instance would let you reach both — the natural next step for `Const`, `Either`, and `Tuple2` alike, once it lands.
+- **Foldable** — not a `Functional` subclass; a `typing.Protocol` requiring only `__iter__`, so any existing iterable (a `list`, a generator, a custom type with its own `__iter__`) satisfies it automatically. Folds, `toList`, length, and friends all build on that one method alone, with a stack-safe trampoline hiding underneath so a naive recursive fold doesn't blow Python's recursion limit on a large input.
+- **Traversable** — needs both `Functor` and `Foldable` together: `traverse :: (a -> f b) -> t a -> f (t b)` runs an effectful function over every element of a structure and flips the two containers inside out, collecting the effects as it goes. It's the reason Haskell's `mapM`/`sequence` need no special-casing of their own — they're just `traverse` specialized.
