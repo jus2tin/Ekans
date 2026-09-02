@@ -349,7 +349,7 @@ Same shape as T-043: `Const.mempty(cls, value_type: Type[S]) -> Const[S, B]`, `B
 
 ### T-045: Reader's mempty classmethod
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-037
 
 Same shape as T-043/T-044: `Reader.mempty(cls, value_type: Type[S]) -> Reader[R, S]`, pointwise (`Reader(run=lambda r: value_type.mempty())`, ignoring the environment entirely -- same pattern as `Reader.point`/`const`), `R` freely inferred. Verified in Phase 1. Update `docs/HOWTO.md`'s `Reader` section.

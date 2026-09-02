@@ -1,14 +1,18 @@
 """Reader: the function arrow `(-> r)` as a first-class value."""
 
 from dataclasses import dataclass
-from typing import Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, Type, TypeVar
 
 from ekans.applicative import Applicative
+
+if TYPE_CHECKING:
+    from ekans.monoid import Monoid
 
 A = TypeVar("A")
 C = TypeVar("C")
 R = TypeVar("R")
 B = TypeVar("B")
+S = TypeVar("S", bound="Monoid")
 
 
 def const(value: A) -> Callable[[C], A]:
@@ -100,3 +104,22 @@ class Reader(Applicative[A], Generic[R, A]):
             The result of `self.run(r)`.
         """
         return self.run(r)
+
+    @classmethod
+    def mempty(cls, value_type: Type[S]) -> "Reader[R, S]":
+        """Construct the identity element for `value_type`, pointwise.
+
+        Does not override `Monoid.mempty` -- same non-nominal
+        reasoning as `Identity.mempty`/`Const.mempty`. Ignores the
+        environment entirely, same shape as `Reader.point`/`const`.
+        `R` is freely inferred from context, unrelated to `S`.
+
+        Args:
+            value_type: The concrete Monoid type to build the identity
+                for.
+
+        Returns:
+            A new Reader whose `run` ignores its argument and returns
+            `value_type.mempty()`.
+        """
+        return Reader(run=const(value_type.mempty()))
