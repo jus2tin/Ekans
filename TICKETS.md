@@ -207,7 +207,7 @@ New type: `src/ekans/sum.py`, `Sum[A]` with a dedicated `SupportsAdd` `Protocol`
 
 ### T-026: `Product[M]` Semigroup instance
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-020
 
 Same shape as T-025 with a `SupportsMul` `Protocol` (`__mul__`) instead of `SupportsAdd`. `src/ekans/product.py`. Law test via `assert_semigroup_law`. Real `docs/HOWTO.md` `Product` section.

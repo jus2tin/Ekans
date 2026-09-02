@@ -18,6 +18,7 @@ Every concept, type, and function that exists in the package gets a section here
 - [Applicative: Pointed and Apply, together](#applicative-pointed-and-apply-together)
 - [Semigroup: squishing two into one](#semigroup-squishing-two-into-one)
 - [Sum: addition, boxed](#sum-addition-boxed)
+- [Product: multiplication, boxed](#product-multiplication-boxed)
 - [Coming soon](#coming-soon)
 
 ## Functional: the box with a broken lid
@@ -500,6 +501,19 @@ Sum(value=Vector(x=1, y=2)).mappend(Sum(value=Vector(x=3, y=4)))
 ```
 
 That's enforced structurally, not by inheritance: `Sum[A]` bounds `A` with a small `Protocol` requiring a self-typed `__add__`, so *any* type with an `__add__` that takes and returns its own type works — no need to explicitly subclass anything. Try it with a type that has no `__add__` at all and mypy rejects the `Sum(value=...)` call outright, before you ever get to `mappend`.
+
+## Product: multiplication, boxed
+
+`Product[M]` is `Sum`'s sibling: same shape, different operation. `mappend` is `*` instead of `+`, bounded by its own small `SupportsMul` `Protocol` requiring a self-typed `__mul__`, structurally rather than by inheritance — same reasoning as `Sum`'s `SupportsAdd` above.
+
+```python
+from ekans.product import Product
+
+Product(value=2).mappend(Product(value=3))    # Product(value=6)
+Product(value=1.5).mappend(Product(value=2))  # Product(value=3.0)
+```
+
+Wrapping the number in `Product` rather than `Sum` says which combining operation you mean for the exact same underlying `int`/`float` — the same disambiguation `Sum` needed above, just picking the other one.
 
 ## Coming soon
 
