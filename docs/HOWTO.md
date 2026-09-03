@@ -8,6 +8,8 @@ Every concept, type, and function that exists in the package gets a section here
 
 The article is in three parts. **Part 1** builds the abstract type-class hierarchy itself, one capability at a time, each with a small throwaway `Box` illustrating the shape. **Part 2** is a gallery of the real, shipped types — `Identity`, `Const`, `Reader`, `Maybe`, `Either`, and the rest — walking through everything each one actually implements, now that every concept it uses has already been introduced. **Part 3** covers `Foldable`, which deliberately sits outside both: it's not part of the `Functional` hierarchy Part 1 builds, and it isn't a concrete type the way Part 2's gallery is either.
 
+Every example below imports from the specific submodule a name lives in (`from ekans.identity import Identity`), so you always know exactly where to find it. Everything shown here is *also* reachable straight off the top-level package — `from ekans import Identity` works just as well — with one deliberate exception: `ap`, `bind`, `do`, `all`, `sum`, `product`, and `const` are free functions that happen to share a name with an existing submodule (`ap.py`, `bind.py`, `do.py`, `all.py`, `sum.py`, `product.py`, `const.py`); re-exporting them under those bare names at the top level would make `ekans.sum` mean different things depending on unrelated import order elsewhere in your program. Those seven stay reachable only via their fully-qualified path, exactly as written throughout this guide.
+
 ## Contents
 
 **Part 1 — the abstract hierarchy**
