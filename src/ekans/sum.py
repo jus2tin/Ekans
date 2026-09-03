@@ -1,7 +1,7 @@
 """Sum: a Semigroup wrapper combining values via addition."""
 
 from dataclasses import dataclass
-from typing import Any, Generic, Iterator, Protocol, Type, TypeVar, overload
+from typing import Generic, Iterator, Protocol, Type, TypeVar, Union, cast, overload
 
 from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
@@ -101,7 +101,9 @@ class Sum(Semigroup, Extractable[A], Generic[A]):
     @classmethod
     def mempty(cls, value_type: Type[_ZeroT]) -> "Sum[_ZeroT]": ...
     @classmethod  # noqa: E301
-    def mempty(cls, value_type: Any) -> Any:
+    def mempty(
+        cls, value_type: Union[Type[int], Type[float], Type[_ZeroT]]
+    ) -> "Union[Sum[int], Sum[float], Sum[_ZeroT]]":
         """Construct the additive identity for `value_type`.
 
         Does not override `Monoid.mempty` -- `Sum` doesn't nominally
@@ -122,4 +124,9 @@ class Sum(Semigroup, Extractable[A], Generic[A]):
             return Sum(value=0)
         if value_type is float:
             return Sum(value=0.0)
-        return Sum(value=value_type.zero())
+        # mypy can't narrow a `type[X] | type[Y] | type[TypeVar]` union via
+        # `is` comparisons against the literal type items -- verified
+        # directly (reproduced against a minimal probe under --strict); the
+        # cast is a precise Type[_ZeroT], not Any.
+        other = cast(Type[_ZeroT], value_type)
+        return Sum(value=other.zero())

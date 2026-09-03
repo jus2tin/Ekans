@@ -1,7 +1,7 @@
 """Product: a Semigroup wrapper combining values via multiplication."""
 
 from dataclasses import dataclass
-from typing import Any, Generic, Iterator, Protocol, Type, TypeVar, overload
+from typing import Generic, Iterator, Protocol, Type, TypeVar, Union, cast, overload
 
 from ekans.extractable import Extractable
 from ekans.semigroup import Semigroup
@@ -101,7 +101,9 @@ class Product(Semigroup, Extractable[M], Generic[M]):
     @classmethod
     def mempty(cls, value_type: Type[_OneT]) -> "Product[_OneT]": ...
     @classmethod  # noqa: E301
-    def mempty(cls, value_type: Any) -> Any:
+    def mempty(
+        cls, value_type: Union[Type[int], Type[float], Type[_OneT]]
+    ) -> "Union[Product[int], Product[float], Product[_OneT]]":
         """Construct the multiplicative identity for `value_type`.
 
         Does not override `Monoid.mempty` -- same non-nominal
@@ -118,4 +120,9 @@ class Product(Semigroup, Extractable[M], Generic[M]):
             return Product(value=1)
         if value_type is float:
             return Product(value=1.0)
-        return Product(value=value_type.one())
+        # mypy can't narrow a `type[X] | type[Y] | type[TypeVar]` union via
+        # `is` comparisons against the literal type items -- verified
+        # directly (reproduced against a minimal probe under --strict); the
+        # cast is a precise Type[_OneT], not Any.
+        other = cast(Type[_OneT], value_type)
+        return Product(value=other.one())
