@@ -653,3 +653,35 @@ Add `__iter__(self) -> Iterator[S]` to `Ap`, folding through the wrapped `Identi
 Tests: `isinstance(Ap(value=Identity(value=1)), Foldable)` is `True`; `toList` yields `[value]`. Cross-Product law test: `Extractable`×`Foldable` coherence (`toList(x) == [extract(x)]`). No `Functor`×`Foldable` pair — `Ap` doesn't nominally implement `Functor`.
 
 Documentation: one- or two-line addition to `Ap`'s existing HOWTO section noting its `Foldable` instance.
+
+## Compose
+
+Spec: [`docs/specs/compose.md`](docs/specs/compose.md)
+
+### T-074: `Compose` core shape — `Functor` + `Foldable`
+
+**Status:** Open
+
+Add `src/ekans/compose.py`: the private structural `_FoldableFunctor` Protocol (combining `Foldable[Any]` + a structural `fmap` requirement, per the spec's verified bound), `Compose[W, A]` as a frozen dataclass implementing `Functor[A]` with `W = TypeVar("W", bound=_FoldableFunctor)`, its `fmap` method (double-`fmap`: map the outer, and inside that, map each inner), `__iter__` (flatten both levels), and type-safe `__eq__`/`__hash__` per the existing Equality convention. No `fmap` free-function changes needed — `functor.py`'s existing generic `Functor[A] -> Functor[B]` fallback already covers `Compose` with no new overload (precision comes in T-075). `Foldable`'s free functions (`foldr`, `toList`, ...) already work with no changes either, per the spec's correction.
+
+Includes the `docs/HOWTO.md` `Compose` section (concept, motivation — unblocking `Traversable`'s composition law — plus one runnable example using a concrete pair), replacing the current stub, and adds `Compose` to `CLAUDE.md`'s "First concrete types" list.
+
+### T-075: `fmap` precision for all 25 `Compose` pairs
+
+**Status:** Open
+**Depends on:** T-074
+
+Add one `fmap` `@overload` in `functor.py` per ordered pair `(F, G)` with `F, G ∈ {Identity, Const, Maybe, Either, Tuple2}` (25 total, including same-type pairs), each above the existing generic fallback. `Const`/`Either`/`Tuple2` pairs each introduce their own fresh `TypeVar` for that type's extra fixed parameter, matching `apply.py`'s existing `ap` overloads.
+
+Tests: reuse `tests/functor_laws.py`'s helper for all 25 pairs (identity + composition laws) via Hypothesis. Example-based `__iter__`/equality tests per pair. Cross-Product law test: `Functor`×`Foldable` coherence isn't a formal law (per the spec's Cross-Product audit — neither is a superclass of the other in Haskell's own hierarchy either), so none added beyond the per-pair `__iter__` example tests.
+
+### T-076: `Applicative` instance for the 9 eligible `Compose` pairs
+
+**Status:** Open
+**Depends on:** T-074
+
+Add `point`/`ap` to `Compose` and matching `@overload`s in `pointed.py`'s and `apply.py`'s (or wherever the free functions land after signature review) free functions, for the 9 ordered pairs with `F, G ∈ {Identity, Maybe, Either}` — the subset that's nominally `Applicative` already. `point`'s exact mechanics (constructing a specific concrete `F`/`G` pair from a bare value) get nailed down at this ticket's Phase 4 signature review, per the spec's Open questions note.
+
+Tests: reuse `tests/applicative_laws.py`'s helper for all 9 pairs (identity, homomorphism, interchange, composition laws) via Hypothesis.
+
+Documentation: extend `Compose`'s `docs/HOWTO.md` section with an `Applicative` example.
