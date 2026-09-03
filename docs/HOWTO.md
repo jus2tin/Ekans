@@ -38,6 +38,7 @@ Every example below imports from the specific submodule a name lives in (`from e
 - [Maybe: a value that might not be there](#maybe-a-value-that-might-not-be-there)
 - [Either: L or R, biased to R](#either-l-or-r-biased-to-r)
 - [Tuple2: a pair, Const's closest sibling](#tuple2-a-pair-consts-closest-sibling)
+- [Compose: a box wrapped around a box](#compose-a-box-wrapped-around-a-box)
 
 **Part 3 — outside both hierarchies**
 
@@ -1066,6 +1067,30 @@ This is the first conditional instance in this codebase needing *two* independen
 
 `Tuple2` is also `Foldable` (see the `Foldable` section below), biased to `second` exactly like its `Functor`/`Extractable`: `list(Tuple2(first="env", second=5))` gives `[5]`, `first` never appearing.
 
+## Compose: a box wrapped around a box
+
+`Compose[W, A]` is Haskell's `Compose f g a = Compose (f (g a))` — one functor holding another, both wrapping the same innermost value. It exists for a specific reason: `Traversable`, when it lands, needs a real `Compose` to state and test its composition law against — you can't check "traversing with two effects nested is the same as traversing with each one in turn" without a real type to hold "two effects, nested" in the first place.
+
+```python
+from ekans.compose import Compose
+from ekans.identity import Identity
+from ekans.maybe import Just, Nothing
+
+boxed = Compose(value=Just(value=Identity(value=1)))
+boxed.fmap(str)   # Compose(value=Just(value=Identity(value='1')))
+
+empty: Compose[Nothing[Identity[int]], int] = Compose(value=Nothing())
+empty.fmap(str)   # Compose(value=Nothing()) -- the outer layer being empty short-circuits everything
+```
+
+`fmap` reaches all the way through both layers in one call — under the hood it maps the *outer* functor with a function that itself maps the *inner* functor: `self.value.fmap(lambda inner: inner.fmap(f))`. Two `.fmap()` calls, composed, doing the work of one.
+
+**Why the type parameters look the way they do.** Python has no way to say "generic over a type that's itself generic over another type" — no higher-kinded types, the same wall `fmap`'s and `ap`'s free functions already ran into. So `Compose` doesn't try to track "the outer functor" and "the inner functor" as separate type parameters the way Haskell does; instead `W` stands for the *whole* nested shape at once (`Just[Identity[A]]`, say), and `A` is just the innermost value type. Calling `.fmap()` directly on a `Compose` only ever gets the honest-but-loose type Python can actually express this way; the free function `fmap` recovers full precision for known shapes the same way it already does for `Identity`/`Const`/`Maybe`/etc. — see `functor.py`'s growing overload list.
+
+`Compose` is also `Foldable`, flattening both layers into one iteration: `list(boxed)` gives `[1]`; `list(empty)` gives `[]`, since there was never an outer element to look inside of. No new machinery needed here — `Foldable`'s free functions (`foldr`, `toList`, and the rest) already work on anything with `__iter__`, `Compose` included, with zero extra overloads.
+
+`Applicative` — meaningful only when *both* nested functors genuinely are one, which rules `Const`/`Tuple2` out the same way it already does everywhere else in this codebase — is coming in a follow-up round, once `Traversable` exists to actually use `Compose` for.
+
 ## Foldable: anything you can already iterate
 
 Every type class so far has been about a specific shape of box, built by explicitly inheriting from an abstract class. `Foldable` is different in kind, not just in content: it's not a `Functional` subclass at all, and nothing needs to opt in to it on purpose.
@@ -1223,7 +1248,7 @@ maximum([])
 # ValueError: maximum: empty Foldable
 ```
 
-**Which of Ekans's own types are `Foldable`, in one place.** Eight concrete types earned a real `__iter__`, each checked against its actual Haskell counterpart rather than added by default — see each type's own section above for the runnable example:
+**Which of Ekans's own types are `Foldable`, in one place.** Nine concrete types earned a real `__iter__`, each checked against its actual Haskell counterpart rather than added by default — see each type's own section above for the runnable example:
 
 | Type | Iterates over |
 |---|---|
@@ -1234,6 +1259,7 @@ maximum([])
 | `Sum[A]`, `Product[M]` | one element each |
 | `Ap[S]` | one element, folded through the wrapped `Identity[S]` |
 | `Const[A, B]` | always zero — folds over the phantom `B`, never actually held |
+| `Compose[W, A]` | flattens both layers — zero if the outer layer is empty, else however many the inner layer holds |
 
 **Two structural exceptions, on purpose.** `All` isn't generic at all (fixed over `bool`, no type parameter to fold over) — Haskell's own `All` has kind `*`, not `* -> *`, so there's no `Foldable` instance there to mirror in the first place. `Reader[R, A]` wraps a function; producing its one `A` needs an `R` from somewhere, and no canonical one exists to iterate on its behalf — the same reasoning that already rules out `Reader`'s `__eq__` (see that section above).
 

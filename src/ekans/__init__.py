@@ -17,6 +17,7 @@ from ekans.ap import Ap
 from ekans.applicative import Applicative, liftA2
 from ekans.apply import Apply
 from ekans.bind import Bind
+from ekans.compose import Compose
 from ekans.const import Const
 from ekans.either import Either, Left, Right
 from ekans.extractable import Extractable
@@ -66,6 +67,7 @@ __all__ = [
     "liftA2",
     "Apply",
     "Bind",
+    "Compose",
     "Const",
     "Either",
     "Left",

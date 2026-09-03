@@ -660,7 +660,7 @@ Spec: [`docs/specs/compose.md`](docs/specs/compose.md)
 
 ### T-074: `Compose` core shape — `Functor` + `Foldable`
 
-**Status:** Open
+**Status:** Closed
 
 Add `src/ekans/compose.py`: the private structural `_FoldableFunctor` Protocol (combining `Foldable[Any]` + a structural `fmap` requirement, per the spec's verified bound), `Compose[W, A]` as a frozen dataclass implementing `Functor[A]` with `W = TypeVar("W", bound=_FoldableFunctor)`, its `fmap` method (double-`fmap`: map the outer, and inside that, map each inner), `__iter__` (flatten both levels), and type-safe `__eq__`/`__hash__` per the existing Equality convention. No `fmap` free-function changes needed — `functor.py`'s existing generic `Functor[A] -> Functor[B]` fallback already covers `Compose` with no new overload (precision comes in T-075). `Foldable`'s free functions (`foldr`, `toList`, ...) already work with no changes either, per the spec's correction.
 
