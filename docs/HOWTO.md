@@ -1076,7 +1076,7 @@ from ekans.compose import Compose
 from ekans.identity import Identity
 from ekans.maybe import Just, Nothing
 
-boxed = Compose(value=Just(value=Identity(value=1)))
+boxed: Compose[Just[Identity[int]], int] = Compose(value=Just(value=Identity(value=1)))
 boxed.fmap(str)   # Compose(value=Just(value=Identity(value='1')))
 
 empty: Compose[Nothing[Identity[int]], int] = Compose(value=Nothing())
@@ -1084,6 +1084,8 @@ empty.fmap(str)   # Compose(value=Nothing()) -- the outer layer being empty shor
 ```
 
 `fmap` reaches all the way through both layers in one call — under the hood it maps the *outer* functor with a function that itself maps the *inner* functor: `self.value.fmap(lambda inner: inner.fmap(f))`. Two `.fmap()` calls, composed, doing the work of one.
+
+One thing worth flagging up front: `A` never appears in `Compose`'s one real field (`value: W`) — it only shows up in `fmap`'s own signature. mypy can infer `W` from a constructor call fine, but has nothing to infer `A` from, so a bare `Compose(value=...)` needs an explicit annotation (as `boxed` has above) to avoid a `Need type annotation` error under `--strict`.
 
 **Why the type parameters look the way they do.** Python has no way to say "generic over a type that's itself generic over another type" — no higher-kinded types, the same wall `fmap`'s and `ap`'s free functions already ran into. So `Compose` doesn't try to track "the outer functor" and "the inner functor" as separate type parameters the way Haskell does; instead `W` stands for the *whole* nested shape at once (`Just[Identity[A]]`, say), and `A` is just the innermost value type. Calling `.fmap()` directly on a `Compose` only ever gets the honest-but-loose type Python can actually express this way; the free function `fmap` recovers full precision for known shapes the same way it already does for `Identity`/`Const`/`Maybe`/etc. — see `functor.py`'s growing overload list.
 

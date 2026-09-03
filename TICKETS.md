@@ -668,12 +668,14 @@ Includes the `docs/HOWTO.md` `Compose` section (concept, motivation — unblocki
 
 ### T-075: `fmap` precision for all 25 `Compose` pairs
 
-**Status:** Open
+**Status:** Closed
 **Depends on:** T-074
 
 Add one `fmap` `@overload` in `functor.py` per ordered pair `(F, G)` with `F, G ∈ {Identity, Const, Maybe, Either, Tuple2}` (25 total, including same-type pairs), each above the existing generic fallback. `Const`/`Either`/`Tuple2` pairs each introduce their own fresh `TypeVar` for that type's extra fixed parameter, matching `apply.py`'s existing `ap` overloads.
 
-Tests: reuse `tests/functor_laws.py`'s helper for all 25 pairs (identity + composition laws) via Hypothesis. Example-based `__iter__`/equality tests per pair. Cross-Product law test: `Functor`×`Foldable` coherence isn't a formal law (per the spec's Cross-Product audit — neither is a superclass of the other in Haskell's own hierarchy either), so none added beyond the per-pair `__iter__` example tests.
+**Correction found during implementation, applied here directly (documented in full in `docs/specs/compose.md`'s Open questions section):** `W` is invariant, so the general 25 `Maybe`/`Either`-level overloads don't match a naturally-constructed value at all (e.g. `Compose(value=Just(...))` infers as `Compose[Just[...], ...]`, not `Compose[Maybe[...], ...]`) — silently falling back to the loose `Functor[B]` for 16 of the 25 pairs, verified directly with a `mypy --strict` probe. Fixed by adding 16 more overloads using `Just`/`Right` in place of `Maybe`/`Either`, above the general ones, mirroring `functor.py`'s own pre-existing `Just`/`Nothing`/`Maybe` three-way pattern. `Nothing`/`Left`-specific overloads deliberately deferred (their `fmap` is a no-op re-tag, lower stakes). **41 total overloads, not 25.**
+
+Tests: reuse `tests/functor_laws.py`'s helper for all 25 pairs (identity + composition laws) via Hypothesis, table-driven via `pytest.mark.parametrize` rather than 25 hand-written functions. Example-based `__iter__`/equality tests per pair (`toList` flattening, matching the `Const`-always-empty behavior at either layer). Cross-Product law test: `Functor`×`Foldable` coherence isn't a formal law (per the spec's Cross-Product audit — neither is a superclass of the other in Haskell's own hierarchy either), so spot-checked as an example test (not a Hypothesis law) per pair, matching `test_compose.py`'s existing precedent from T-074.
 
 ### T-076: `Applicative` instance for the 9 eligible `Compose` pairs
 

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar, Union, overload
 from ekans.functional import Functional
 
 if TYPE_CHECKING:
+    from ekans.compose import Compose
     from ekans.const import Const
     from ekans.either import Either, Left, Right
     from ekans.identity import Identity
@@ -17,6 +18,7 @@ A_co = TypeVar("A_co", covariant=True)
 A = TypeVar("A")
 B = TypeVar("B")
 H = TypeVar("H")
+H2 = TypeVar("H2")
 R = TypeVar("R")
 
 
@@ -63,6 +65,170 @@ def fmap(
 ) -> "Union[Left[H, B], Right[H, B]]": ...
 @overload
 def fmap(f: Callable[[A], B], functor: "Tuple2[H, A]") -> "Tuple2[H, B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Identity[Just[A]], A]"
+) -> "Compose[Identity[Just[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Identity[Right[H, A]], A]"
+) -> "Compose[Identity[Right[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Const[H, Just[A]], A]"
+) -> "Compose[Const[H, Just[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Const[H, Right[H2, A]], A]"
+) -> "Compose[Const[H, Right[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Just[Identity[A]], A]"
+) -> "Compose[Just[Identity[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Just[Const[H, A]], A]"
+) -> "Compose[Just[Const[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Just[Just[A]], A]"
+) -> "Compose[Just[Just[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Just[Right[H, A]], A]"
+) -> "Compose[Just[Right[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Just[Tuple2[H, A]], A]"
+) -> "Compose[Just[Tuple2[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Right[H, Identity[A]], A]"
+) -> "Compose[Right[H, Identity[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Right[H, Const[H2, A]], A]"
+) -> "Compose[Right[H, Const[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Right[H, Just[A]], A]"
+) -> "Compose[Right[H, Just[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Right[H, Right[H2, A]], A]"
+) -> "Compose[Right[H, Right[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Right[H, Tuple2[H2, A]], A]"
+) -> "Compose[Right[H, Tuple2[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Tuple2[H, Just[A]], A]"
+) -> "Compose[Tuple2[H, Just[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Tuple2[H, Right[H2, A]], A]"
+) -> "Compose[Tuple2[H, Right[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Identity[Identity[A]], A]"
+) -> "Compose[Identity[Identity[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Identity[Const[H, A]], A]"
+) -> "Compose[Identity[Const[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Identity[Maybe[A]], A]"
+) -> "Compose[Identity[Maybe[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Identity[Either[H, A]], A]"
+) -> "Compose[Identity[Either[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Identity[Tuple2[H, A]], A]"
+) -> "Compose[Identity[Tuple2[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Const[H, Identity[A]], A]"
+) -> "Compose[Const[H, Identity[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Const[H, Const[H2, A]], A]"
+) -> "Compose[Const[H, Const[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Const[H, Maybe[A]], A]"
+) -> "Compose[Const[H, Maybe[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Const[H, Either[H2, A]], A]"
+) -> "Compose[Const[H, Either[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Const[H, Tuple2[H2, A]], A]"
+) -> "Compose[Const[H, Tuple2[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Maybe[Identity[A]], A]"
+) -> "Compose[Maybe[Identity[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Maybe[Const[H, A]], A]"
+) -> "Compose[Maybe[Const[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Maybe[Maybe[A]], A]"
+) -> "Compose[Maybe[Maybe[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Maybe[Either[H, A]], A]"
+) -> "Compose[Maybe[Either[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Maybe[Tuple2[H, A]], A]"
+) -> "Compose[Maybe[Tuple2[H, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Either[H, Identity[A]], A]"
+) -> "Compose[Either[H, Identity[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Either[H, Const[H2, A]], A]"
+) -> "Compose[Either[H, Const[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Either[H, Maybe[A]], A]"
+) -> "Compose[Either[H, Maybe[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Either[H, Either[H2, A]], A]"
+) -> "Compose[Either[H, Either[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Either[H, Tuple2[H2, A]], A]"
+) -> "Compose[Either[H, Tuple2[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Tuple2[H, Identity[A]], A]"
+) -> "Compose[Tuple2[H, Identity[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Tuple2[H, Const[H2, A]], A]"
+) -> "Compose[Tuple2[H, Const[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Tuple2[H, Maybe[A]], A]"
+) -> "Compose[Tuple2[H, Maybe[B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Tuple2[H, Either[H2, A]], A]"
+) -> "Compose[Tuple2[H, Either[H2, B]], B]": ...
+@overload  # noqa: E302
+def fmap(
+    f: Callable[[A], B], functor: "Compose[Tuple2[H, Tuple2[H2, A]], A]"
+) -> "Compose[Tuple2[H, Tuple2[H2, B]], B]": ...
 @overload
 def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]: ...
 def fmap(f: Callable[[A], B], functor: Functor[A]) -> Functor[B]:  # noqa: E302
